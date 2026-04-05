@@ -32,6 +32,7 @@ from pptx import Presentation  # python-pptx builds a real PowerPoint file.
 from pptx.dml.color import RGBColor  # RGBColor is required to set theme accents.
 from pptx.enum.shapes import MSO_SHAPE  # MSO_SHAPE is used to create rectangles.
 from pptx.util import Inches, Pt  # Inches for layout; Pt for font sizes.
+from pptx.enum.text import MSO_AUTO_SIZE
 
 
 mcp = FastMCP("ppt-mcp-server")  # MCP server name (shows up in tooling).
@@ -145,21 +146,58 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     pres = _SESSIONS[session_id]
     slide = pres.slides.add_slide(pres.slide_layouts[1])
     slide_index = len(pres.slides) - 1
-    slide.shapes.title.text = slide_title
+    
+    # 🎨 THEME UPGRADE: PRO DARK SCIENTIFIC THEME
+    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, pres.slide_width, pres.slide_height)
+    bg.fill.solid()
+    bg.fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
+    bg.line.fill.background()
+    # Send to back (behind placeholders)
+    slide.shapes._spTree.remove(bg._element)
+    slide.shapes._spTree.insert(2, bg._element)
 
-    # Layout Optimization: Shrink the body box so it doesn't overlap the image.
+    # 🏷️ TITLE ALIGNMENT: Full-Width Lock
+    slide.shapes.title.text = slide_title
+    slide.shapes.title.left = Inches(0.5)
+    slide.shapes.title.top = Inches(0.4)
+    slide.shapes.title.width = int(pres.slide_width * 0.9) # FIXED: Horizontal Row Lock
+    
+    title_para = slide.shapes.title.text_frame.paragraphs[0]
+    title_run = title_para.runs[0] if title_para.runs else title_para.add_run()
+    title_run.font.color.rgb = RGBColor(255, 223, 128) # Professional Soft Gold
+    title_run.font.bold = True
+    title_run.font.size = Pt(36)
+
+    # 📝 MATTER ALIGNMENT: Below the Title
     body = slide.shapes.placeholders[1]
-    body.left = 0
-    body.width = int(pres.slide_width * 0.60) # 60% width on the left.
+    body.left = Inches(0.5)
+    body.top = Inches(1.8)
+    body.width = int(pres.slide_width * 0.95)
+    body.height = int(pres.slide_height * 0.6)
+    
     tf = body.text_frame
+    tf.word_wrap = True
+    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     tf.clear()
 
-    clean_bullets = bullets[:5] if bullets else ["(No facts found)"]
-    for i, bullet in enumerate(clean_bullets):
-        p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
-        p.text = bullet
-        p.level = 0
+    if bullets:
+        for i, bullet in enumerate(bullets[:6]):
+            p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
+            p.text = f"• {str(bullet)}"
+            p.level = 0
+            p.font.size = Pt(18)
+            p.font.color.rgb = RGBColor(220, 230, 240) # Bright Ice White
+    else:
+        tf.text = "(Consulting Scientific Sources...)"
 
+    # Sleek Designer Bottom Ribbon
+    ribbon = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, pres.slide_height - Inches(0.1), pres.slide_width, Inches(0.1))
+    ribbon.fill.solid()
+    ribbon.fill.fore_color.rgb = RGBColor(0, 112, 192) # Vibrant Science Blue
+    ribbon.line.fill.background()
+    
+    return {"ok": True, "slides_total": len(pres.slides), "slide_index": slide_index}
+    
     return {"ok": True, "slides_total": len(pres.slides), "slide_index": slide_index}
 
 

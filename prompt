@@ -1,0 +1,1 @@
+python agent_ppt.py "Create a 6-slide presentation on the Life Cycle of a Frog" --output "FINAL_FROG_SUBMISSION.pptx"
