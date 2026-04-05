@@ -79,13 +79,25 @@ class AutoPPTAgent:
                         r_data = json.loads((await res.call_tool("search_topic", {"query": f"{subject} {title}"})).content[0].text)
                         facts = r_data.get('points', [])
                         
-                        # Use all 3 tokens for smart bullet refinement
-                        refiner = f"Summarize into 5 scientific bullets for '{title}': {facts}. JSON {{'bullets':[]}}"
-                        content = await self.ask_llm(refiner)
-                        bullets = content.get("bullets", facts[:5])
+                        # REDUNDANCY: If specific slide search fails, use general topic research
+                        if not facts or len(facts) < 2:
+                            r_data = json.loads((await res.call_tool("search_topic", {"query": f"General facts about {subject}"})).content[0].text)
+                            facts = r_data.get('points', [])
+
+                        # AI-BRAIN FALLBACK: If web search is thin, use Hugging Face (Qwen/2.5) intelligence
+                        if not facts or len(facts) < 2:
+                            print(f"[AGENT] Web thin, using AI Brain for {title}...", file=sys.stderr)
+                            ai_gen = await self.ask_llm(f"Act as a scientist and generate 5 deep, factual bullets for a slide titled '{title}' about '{subject}'. JSON {{'bullets':[]}}")
+                            bullets = ai_gen.get("bullets", [])
+                        else:
+                            # Use all 3 tokens for smart bullet refinement based on web data
+                            refiner = f"Summarize these bio-facts into 5 expert bullets for '{title}': {facts}. JSON {{'bullets':[]}}"
+                            content = await self.ask_llm(refiner)
+                            bullets = content.get("bullets", facts[:6])
                         
+                        # Absolute Safety Fallback
                         if not bullets or len(bullets) < 2:
-                            bullets = [f"Critical analysis of {title} in the context of {subject}.", f"Developmental stages and historical progress of {subject}.", f"Technological aspects and modern implications.", f"Biological or economic significance of {title}.", f"Strategic summary and future directions."]
+                             bullets = [f"Deep analysis of the significance of {title} in {subject}.", f"Developmental stages and technical progress.", f"Global impact and innovative implications.", f"Critical biological or economic markers.", f"Future trajectories and research trends."]
 
                         await ppt.call_tool("add_slide", {"session_id": sid, "slide_title": title, "bullets": bullets[:6]})
 

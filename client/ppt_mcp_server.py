@@ -169,9 +169,9 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     bg.fill.solid()
     bg.fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
     bg.line.fill.background()
-    # Send to back (behind placeholders)
+    # Send to absolute back (Z-Order 0)
     slide.shapes._spTree.remove(bg._element)
-    slide.shapes._spTree.insert(2, bg._element)
+    slide.shapes._spTree.insert(0, bg._element)
 
     # 🏷️ TITLE ALIGNMENT: Full-Width Lock
     slide.shapes.title.text = slide_title
