@@ -28,16 +28,8 @@ mcp = FastMCP("research-mcp-server")
 
 
 def _fallback_points(query: str) -> List[str]:
-    # Professional educational fallbacks for when Wikipedia is blocked/unavailable.
-    short = query.strip()[:80] + ("…" if len(query.strip()) > 80 else "")
-    return [
-        f"Core concepts and definitions for {short}.",
-        "Historical background and how the field or product evolved.",
-        "Main components, structure, or mechanisms involved.",
-        "Typical use cases, ecosystem, or real-world context.",
-        "Current challenges, limitations, or open questions.",
-        "Takeaways and what to explore next.",
-    ]
+    # No hardcoded topic facts — return empty so callers rely on live sources or retry.
+    return []
 
 
 def _primary_topic_for_wikipedia(query: str) -> str:
@@ -91,7 +83,7 @@ def _bullets_from_wikipedia_extract(extract: str, query: str) -> List[str]:
     """
     extract = (extract or "").strip()
     if len(extract) < 40:
-        return _fallback_points(query)
+        return []
 
     parts = re.split(r"(?<=[.!?])\s+", extract)
     sentences = [p.strip() for p in parts if len(p.strip()) > 18]
@@ -134,7 +126,7 @@ def _bullets_from_wikipedia_extract(extract: str, query: str) -> List[str]:
 def _extract_from_wikipedia_text(extract: str, query: str) -> dict:
     """Build bullet points from a plain-text extract."""
     points = _bullets_from_wikipedia_extract(extract, query)
-    return {"ok": True, "points": points or _fallback_points(query), "source": "wikipedia"}
+    return {"ok": True, "points": points or [], "source": "wikipedia"}
 
 
 def _mediawiki_fallback(q: str, query: str) -> dict | None:
@@ -178,9 +170,168 @@ def _extract_from_text(text: str, query: str) -> List[str]:
     return _bullets_from_wikipedia_extract(text, query)
 
 
+def _fetch_wikipedia_exchars(page_title: str) -> str:
+    """Longer plain-text extract from MediaWiki (same article, more than REST intro)."""
+    if not page_title.strip():
+        return ""
+    try:
+        url = (
+            "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts"
+            "&explaintext=1&exsectionformat=plain&exchars=12000&titles="
+            + quote(page_title, safe="")
+        )
+        r = httpx.get(url, headers=_HTTP_HEADERS, timeout=15.0)
+        if r.status_code != 200:
+            return ""
+        data = r.json()
+        pages = data.get("query", {}).get("pages", {})
+        for _pid, page in pages.items():
+            if not isinstance(page, dict):
+                continue
+            if page.get("missing"):
+                continue
+            ex = page.get("extract", "") or ""
+            if ex:
+                return ex
+    except Exception:
+        pass
+    return ""
+
+
+def _sentences_from_extract(text: str) -> List[str]:
+    if not (text or "").strip():
+        return []
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [p.strip() for p in parts if len(p.strip()) > 22]
+
+
+_SLIDE_TITLE_STOP = frozenset(
+    """origins taxonomy structural physiological features biological environmental
+    industrial societal directions conservation research future growth lifecycle
+    roles impact with from that this their""".split()
+)
+
+
+def _score_sentence_for_slide(sentence: str, topic: str, slide_title: str) -> int:
+    s = sentence.lower()
+    score = 0
+    for w in set(re.findall(r"[a-z]{4,}", (slide_title or "").lower())):
+        if w in _SLIDE_TITLE_STOP and len(w) < 6:
+            continue
+        if w in s:
+            score += 3
+    for w in re.findall(r"[a-z]+", (topic or "").lower()):
+        if len(w) >= 4 and w in s:
+            score += 1
+    return score
+
+
+def _ranked_bullets_for_slide(full_text: str, topic: str, slide_title: str) -> List[str]:
+    """Pick sentences from long Wikipedia text that match this slide heading (dynamic, no hardcoded facts)."""
+    sentences = _sentences_from_extract(full_text)
+    if not sentences:
+        return []
+    scored = [(_score_sentence_for_slide(s, topic, slide_title), s) for s in sentences]
+    scored.sort(key=lambda x: -x[0])
+    seen: set[str] = set()
+    out: List[str] = []
+    for sc, s in scored:
+        if sc <= 0:
+            break
+        k = s.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(s if s.endswith(".") else s + ".")
+        if len(out) >= 18:
+            break
+    if len(out) >= 4:
+        return out
+    # Not enough keyword overlap: fall back to neutral chunking of the same internet text
+    return _bullets_from_wikipedia_extract(full_text[:8000], topic)
+
+
+def _wiki_plain_extract_via_search(search_phrase: str) -> str:
+    """OpenSearch + extracts → plain text (one merged string)."""
+    try:
+        search_url = (
+            "https://en.wikipedia.org/w/api.php?"
+            f"action=opensearch&search={quote(search_phrase)}&limit=1&namespace=0&format=json"
+        )
+        r = httpx.get(search_url, headers=_HTTP_HEADERS, timeout=10.0)
+        if r.status_code != 200:
+            return ""
+        payload = r.json()
+        if not isinstance(payload, list) or len(payload) < 2 or not payload[1]:
+            return ""
+        title = payload[1][0]
+        return _fetch_wikipedia_exchars(title)
+    except Exception:
+        return ""
+
+
+def _supplement_points_from_web(topic: str, slide_title: str) -> List[str]:
+    """Extra Wikipedia searches: topic + salient words from the slide title (still dynamic)."""
+    hints = list(
+        dict.fromkeys(
+            w
+            for w in re.findall(r"[a-z]{4,}", (slide_title or "").lower())
+            if w not in _SLIDE_TITLE_STOP or len(w) >= 6
+        )
+    )[:5]
+    if not hints:
+        hints = ["overview"]
+    seen: set[str] = set()
+    merged: List[str] = []
+    for h in hints:
+        blob = _wiki_plain_extract_via_search(f"{topic} {h}")
+        if not blob:
+            continue
+        for line in _ranked_bullets_for_slide(blob, topic, slide_title):
+            k = line.lower()
+            if k not in seen:
+                seen.add(k)
+                merged.append(line)
+        if len(merged) >= 18:
+            break
+    return merged[:18]
+
+
+_DICT_SLANG = re.compile(
+    r"\b(slang|informal|figurative|offensive|vulgar|pejorative|dated)\b|"
+    r"\blookit\b|!|attractive woman|legs on|hot tomato|pelt with|shade of red|colour of|color of\b",
+    re.I,
+)
+_DICT_VERB_DEF = re.compile(r"^\s*to\s+", re.I)
+# Encyclopedic / descriptive — filters out color-slang senses and verb "to pelt / to add"
+_DICT_EDU = re.compile(
+    r"\b(plant|species|genus|family|fruit|vegetable|berry|crop|edible|cultivar|tree|shrub|herb|"
+    r"native|grow|grown|leaf|seed|flower|root|stem|contain|rich|vitamin|mineral|nutrient|"
+    r"protein|starch|acid|sugar|fiber|antioxidant|lycopene|caroten|source|food|origin|region|"
+    r"climate|harvest|annual|perennial|biology|anatomy|structure|cell|tissue|animal|organism|"
+    r"person|people|human|teacher|student|school|education|machine|device|computer|instrument|"
+    r"building|organization|system|process|material|element|chemical|energy|force|theory)\b",
+    re.I,
+)
+
+
+def _dictionary_definition_ok(defn: str, topic: str) -> bool:
+    low = defn.lower()
+    if len(low) < 20 or _DICT_SLANG.search(defn):
+        return False
+    if _DICT_VERB_DEF.search(defn.strip()):
+        return False
+    tw = topic.lower().strip()
+    if tw and tw not in low and not any(
+        len(w) >= 4 and w in low for w in re.findall(r"[a-z]+", tw)
+    ):
+        return False
+    return bool(_DICT_EDU.search(defn))
+
+
 def _dictionaryapi_bullets(topic: str) -> List[str] | None:
     """
-    Free, no API key (dictionaryapi.dev). Used when Wikipedia blocks datacenter IPs (403).
+    Free dictionary API — only **noun** senses that read like encyclopedia lines (no slang, verbs, or examples).
     """
     slug = re.sub(r"[^a-zA-Z0-9 ]+", " ", topic).strip().lower()
     if not slug or len(slug) > 64:
@@ -196,7 +347,7 @@ def _dictionaryapi_bullets(topic: str) -> List[str] | None:
     seen: set[str] = set()
     bullets: List[str] = []
     for c in candidates:
-        if len(bullets) >= 12:
+        if len(bullets) >= 8:
             break
         url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{quote(c, safe='')}"
         try:
@@ -210,37 +361,26 @@ def _dictionaryapi_bullets(topic: str) -> List[str] | None:
             continue
         for entry in data:
             for meaning in entry.get("meanings", []) or []:
-                pos = (meaning.get("partOfSpeech") or "").strip()
+                pos = (meaning.get("partOfSpeech") or "").strip().lower()
+                if pos != "noun":
+                    continue
                 for d in meaning.get("definitions", []) or []:
                     defn = (d.get("definition") or "").strip()
-                    if len(defn) < 15:
+                    if not _dictionary_definition_ok(defn, topic):
                         continue
                     key = defn.lower()
                     if key in seen:
                         continue
                     seen.add(key)
-                    line = f"({pos}) {defn}" if pos else defn
+                    line = defn[0].upper() + defn[1:] if defn else defn
+                    if not line.endswith("."):
+                        line += "."
                     bullets.append(line)
-                    ex = (d.get("example") or "").strip()
-                    if ex and len(bullets) < 12:
-                        ek = ex.lower()
-                        if ek not in seen:
-                            seen.add(ek)
-                            bullets.append(f"Example: {ex}")
-                    if len(bullets) >= 12:
+                    if len(bullets) >= 8:
                         break
-                for syn in meaning.get("synonyms", []) or []:
-                    if len(bullets) >= 12:
-                        break
-                    s = str(syn).strip()
-                    if len(s) > 3:
-                        sk = f"synonym:{s.lower()}"
-                        if sk not in seen:
-                            seen.add(sk)
-                            bullets.append(f"Related term: {s}.")
-                if len(bullets) >= 12:
+                if len(bullets) >= 8:
                     break
-            if len(bullets) >= 12:
+            if len(bullets) >= 8:
                 break
         if bullets:
             break
@@ -252,69 +392,40 @@ def _dictionaryapi_bullets(topic: str) -> List[str] | None:
         bl = line.lower()
         return sum(1 for r in roots if r in bl)
 
-    if any(_topic_score(b) > 0 for b in bullets):
-        bullets = sorted(bullets, key=_topic_score, reverse=True)
+    bullets = sorted(bullets, key=_topic_score, reverse=True)
 
     if len(bullets) < 6 and bullets:
-        primary = re.sub(r"^\([^)]+\)\s*", "", bullets[0]).strip()
+        primary = bullets[0].strip()
         if len(primary.split()) >= 28:
             bullets = _word_balance_chunks(primary, 6)
     return bullets[:12]
 
 
-# HIGH-QUALITY SCIENTIFIC DATABASE (Fail-safe for specific grading topics)
-FROG_DB = {
-    "egg": [
-        "Frogs lay hundreds of eggs in water, often protected by a jelly-like substance.",
-        "Eggs develop over 6 to 21 days before hatching into larvae.",
-        "The cluster of eggs is known as 'frogspawn'."
-    ],
-    "tadpole": [
-        "Tadpoles are purely aquatic larvae with gills and a long tail.",
-        "They primarily feed on algae and organic debris found in ponds.",
-        "Internal organs begin to develop during this stage, preparing for life on land."
-    ],
-    "metamorphosis": [
-        "This is the transformational stage where hind legs and then front legs grow.",
-        "The tail is slowly absorbed by the body to provide nutrients for development.",
-        "Lungs develop at this stage to replace gills for air breathing."
-    ],
-    "froglet": [
-        "A froglet resembles a miniature adult but still retains a small tail stump.",
-        "It begins to shift its diet from algae to small insects like flies.",
-        "Froglets begin to spend more time near the water's edge rather than deep inside."
-    ],
-    "adult": [
-        "Adult frogs are fully developed amphibians with powerful hind legs for jumping.",
-        "They have permeable skin that requires constant moisture to avoid dehydration.",
-        "Adults are carnivorous, using long, sticky tongues to catch prey."
-    ]
-}
-
 @mcp.tool()
-async def search_topic(query: str) -> dict:
-    """Fetch scientific facts and verified thumbnails.
+async def search_topic(query: str, slide_title: str = "", supplement: bool = False) -> dict:
+    """Fetch facts from Wikipedia (and dictionary only if Wikipedia fails). All topical text is from live APIs.
 
     **Required Tool Name:** search_topic.
 
     **Parameters:**
-        query: Subject to research.
+        query: Subject / search phrase (may include slide context; primary topic is parsed out).
+        slide_title: When set, sentences are ranked so bullets match this heading (dynamic).
+        supplement: When true, run extra Wikipedia searches (topic + words from the slide title).
 
     **Returns:**
         dict with ``ok``, ``points``, ``thumbnail``.
     """
-    q_lower = query.lower()
-    
-    # PRIORITY 1: Check high-grade hardcoded database for frog topics.
-    for key in FROG_DB:
-        if key in q_lower:
-            return {"ok": True, "points": FROG_DB[key], "thumbnail": "", "source": "knowledge_base"}
-
-    # PRIORITY 2: Wikipedia research (topic only — not "subject + slide title + fluff")
     q = re.sub(r"\s+(Stage|Part|Phase|Process|Overview|Introduction|Cycle)\b", "", query, flags=re.IGNORECASE).strip()
     q = re.sub(r"\d+", "", q).strip() or query
-    wiki_title = _primary_topic_for_wikipedia(q)
-    wiki_title = wiki_title.replace(" ", "_")
+    topic_phrase = _primary_topic_for_wikipedia(q)
+    wiki_title = topic_phrase.replace(" ", "_")
+    topic_display = topic_phrase.strip()
+
+    if supplement:
+        pts = _supplement_points_from_web(topic_display, slide_title)
+        if not pts:
+            pts = _fallback_points(topic_display)
+        return {"ok": True, "points": pts, "thumbnail": "", "source": "wikipedia_supplement"}
 
     try:
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{wiki_title}"
@@ -322,19 +433,35 @@ async def search_topic(query: str) -> dict:
             resp = await client.get(url)
             if resp.status_code == 200:
                 data = resp.json()
-                extract = data.get("extract", "") or ""
-                points = _extract_from_text(extract, wiki_title.replace("_", " "))
+                api_title = (data.get("title") or topic_display).strip()
+                extract_short = (data.get("extract", "") or "").strip()
+                extract_long = _fetch_wikipedia_exchars(api_title)
+                full = (extract_long + "\n\n" + extract_short).strip()
                 thumb = data.get("thumbnail", {}).get("source", "")
+                if slide_title.strip() and len(full) > 80:
+                    points = _ranked_bullets_for_slide(full, topic_display, slide_title)
+                else:
+                    points = _extract_from_text(extract_short or extract_long, api_title)
+                if not points:
+                    points = _extract_from_text(extract_short or extract_long, api_title)
                 return {"ok": True, "points": points, "thumbnail": thumb, "source": "wikipedia"}
     except Exception:
         pass
 
     mw = _mediawiki_fallback(wiki_title.replace("_", " "), query)
     if mw:
-        pts = mw.get("points") or []
-        return {"ok": True, "points": pts, "thumbnail": "", "source": mw.get("source", "wikipedia")}
+        long_blob = _fetch_wikipedia_exchars(topic_display)
+        if len(long_blob) < 200:
+            long_blob = _wiki_plain_extract_via_search(topic_display)
+        if slide_title.strip() and len(long_blob) > 80:
+            points = _ranked_bullets_for_slide(long_blob, topic_display, slide_title)
+        else:
+            points = mw.get("points") or []
+        if not points:
+            points = mw.get("points") or []
+        return {"ok": True, "points": points, "thumbnail": "", "source": mw.get("source", "wikipedia")}
 
-    dict_pts = _dictionaryapi_bullets(wiki_title.replace("_", " "))
+    dict_pts = _dictionaryapi_bullets(topic_display)
     if dict_pts:
         return {
             "ok": True,
@@ -343,7 +470,7 @@ async def search_topic(query: str) -> dict:
             "source": "dictionaryapi.dev",
         }
 
-    return {"ok": True, "points": _fallback_points(wiki_title.replace("_", " ")), "thumbnail": "", "source": "fallback"}
+    return {"ok": True, "points": _fallback_points(topic_display), "thumbnail": "", "source": "fallback"}
 
 
 if __name__ == "__main__":

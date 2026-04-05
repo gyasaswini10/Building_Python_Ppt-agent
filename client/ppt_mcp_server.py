@@ -96,10 +96,10 @@ def create_pptx(title: str = "Presentation") -> dict:
     # Title Positioning & High-End Style
     title_shape = slide.shapes.title
     title_shape.text = title
-    title_run = title_shape.text_frame.paragraphs[0].runs[0]
-    title_run.font.color.rgb = RGBColor(255, 223, 128) # Gold
-    title_run.font.size = Pt(44)
-    title_run.font.bold = True
+    for tr in title_shape.text_frame.paragraphs[0].runs:
+        tr.font.color.rgb = RGBColor(255, 223, 128)
+        tr.font.size = Pt(44)
+        tr.font.bold = True
     
     # Subtitle with Generated info
     subtitle = slide.placeholders[1]
@@ -173,10 +173,10 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     slide.shapes.title.width = int(pres.slide_width * 0.9)
     
     title_para = slide.shapes.title.text_frame.paragraphs[0]
-    title_run = title_para.runs[0] if title_para.runs else title_para.add_run()
-    title_run.font.color.rgb = RGBColor(255, 223, 128) # Professional Soft Gold
-    title_run.font.bold = True
-    title_run.font.size = Pt(36)
+    for tr in title_para.runs:
+        tr.font.color.rgb = RGBColor(255, 223, 128)
+        tr.font.bold = True
+        tr.font.size = Pt(36)
 
     # 📝 MATTER ALIGNMENT: Below the Title
     body = slide.shapes.placeholders[1]
@@ -187,32 +187,40 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     
     tf = body.text_frame
     tf.word_wrap = True
-    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    # TEXT_TO_FIT_SHAPE can shrink text to illegible in some viewers; NONE keeps readable size.
+    tf.auto_size = MSO_AUTO_SIZE.NONE
     tf.clear()
+    tf.margin_bottom = tf.margin_top = tf.margin_left = tf.margin_right = Inches(0.05)
 
-    if bullets:
-        for i, bullet in enumerate(bullets[:6]):
+    def _style_body_run(paragraph, size_pt: int = 18) -> None:
+        """Assign RGB on runs — theme inheritance often yields black-on-navy (looks blank)."""
+        for run in paragraph.runs:
+            run.font.size = Pt(size_pt)
+            run.font.color.rgb = RGBColor(220, 230, 240)
+
+    use = [str(b).strip() for b in (bullets or []) if str(b).strip()][:5]
+    if use:
+        for i, bullet in enumerate(use):
             p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
-            # Layout already shows a bullet glyph; strip manual "•" to avoid double bullets
             raw = str(bullet).strip()
             if raw.startswith("•"):
                 raw = raw[1:].strip()
-            if raw.startswith("\u2022"):  # unicode bullet
+            if raw.startswith("\u2022"):
                 raw = raw[1:].strip()
+            if not raw:
+                continue
             p.text = raw
             p.level = 0
-            p.font.size = Pt(18)
-            p.font.color.rgb = RGBColor(220, 230, 240) # Bright Ice White
-    else:
-        tf.text = "(Consulting Scientific Sources...)"
+            _style_body_run(p)
+    if not tf.text.strip():
+        tf.text = "Add research or model output: no bullet text was provided for this slide."
+        _style_body_run(tf.paragraphs[0])
 
     # Sleek Designer Bottom Ribbon
     ribbon = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, pres.slide_height - Inches(0.1), pres.slide_width, Inches(0.1))
     ribbon.fill.solid()
     ribbon.fill.fore_color.rgb = RGBColor(0, 112, 192) # Vibrant Science Blue
     ribbon.line.fill.background()
-    
-    return {"ok": True, "slides_total": len(pres.slides), "slide_index": slide_index}
     
     return {"ok": True, "slides_total": len(pres.slides), "slide_index": slide_index}
 
