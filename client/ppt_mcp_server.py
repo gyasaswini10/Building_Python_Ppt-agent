@@ -89,12 +89,9 @@ def create_pptx(title: str = "Presentation") -> dict:
     slide = pres.slides.add_slide(pres.slide_layouts[0])
     
     # 🎨 THEME: TITLE SLIDE (SLIDE 1)
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, pres.slide_width, pres.slide_height)
-    bg.fill.solid()
-    bg.fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
-    bg.line.fill.background()
-    slide.shapes._spTree.remove(bg._element)
-    slide.shapes._spTree.insert(2, bg._element)
+    fill = slide.background.fill
+    fill.solid()
+    fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
 
     # Title Positioning & High-End Style
     title_shape = slide.shapes.title
@@ -164,20 +161,16 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     slide = pres.slides.add_slide(pres.slide_layouts[1])
     slide_index = len(pres.slides) - 1
     
-    # 🎨 THEME UPGRADE: PRO DARK SCIENTIFIC THEME
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, pres.slide_width, pres.slide_height)
-    bg.fill.solid()
-    bg.fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
-    bg.line.fill.background()
-    # Send to absolute back (Z-Order 0)
-    slide.shapes._spTree.remove(bg._element)
-    slide.shapes._spTree.insert(0, bg._element)
+    # 🎨 THEME UPGRADE: PRO DARK SCIENTIFIC THEME (Stable API)
+    fill = slide.background.fill
+    fill.solid()
+    fill.fore_color.rgb = RGBColor(15, 25, 45) # Deep Midnight Navy
 
     # 🏷️ TITLE ALIGNMENT: Full-Width Lock
     slide.shapes.title.text = slide_title
     slide.shapes.title.left = Inches(0.5)
     slide.shapes.title.top = Inches(0.4)
-    slide.shapes.title.width = int(pres.slide_width * 0.9) # FIXED: Horizontal Row Lock
+    slide.shapes.title.width = int(pres.slide_width * 0.9)
     
     title_para = slide.shapes.title.text_frame.paragraphs[0]
     title_run = title_para.runs[0] if title_para.runs else title_para.add_run()
@@ -200,7 +193,13 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     if bullets:
         for i, bullet in enumerate(bullets[:6]):
             p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
-            p.text = f"• {str(bullet)}"
+            # Layout already shows a bullet glyph; strip manual "•" to avoid double bullets
+            raw = str(bullet).strip()
+            if raw.startswith("•"):
+                raw = raw[1:].strip()
+            if raw.startswith("\u2022"):  # unicode bullet
+                raw = raw[1:].strip()
+            p.text = raw
             p.level = 0
             p.font.size = Pt(18)
             p.font.color.rgb = RGBColor(220, 230, 240) # Bright Ice White

@@ -1,1 +1,5 @@
-python agent_ppt.py "Create a 6-slide presentation on the Life Cycle of a Frog" --output "FINAL_FROG_SUBMISSION.pptx"
+python agent_ppt.py "Create a 6-slide presentation on the choclate" --output "choclate.pptx"
+
+
+env\Scripts\python client\agent_ppt.py "Create a 6-slide presentation on pen" --output
+ "pen.pptx"                          
