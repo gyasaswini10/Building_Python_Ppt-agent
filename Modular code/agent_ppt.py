@@ -17,7 +17,7 @@ except ImportError:
 NUM_SLIDE_BULLETS = 5
 
 
-class AutoPPTAgent:
+class AutonomousPresenter:
     _STOP = frozenset(
         "and the for with from their this that are was were has have been being "
         "into such each over also than then only both about under when what which "
@@ -27,13 +27,13 @@ class AutoPPTAgent:
 
     @staticmethod
     def _words(s: str) -> set[str]:
-        return {w for w in re.findall(r"[a-z]{3,}", s.lower()) if w not in AutoPPTAgent._STOP}
+        return {w for w in re.findall(r"[a-z]{3,}", s.lower()) if w not in AutonomousPresenter._STOP}
 
     @staticmethod
     def _slide_theme_keywords(title: str) -> set[str]:
         """Heading tokens plus theme words so bullets can match substance, not only the title string."""
         t = title.lower()
-        base = AutoPPTAgent._words(title)
+        base = AutonomousPresenter._words(title)
         extra: set[str] = set()
         if "future" in t or "conservation" in t or "research" in t:
             extra.update(
@@ -104,10 +104,10 @@ class AutoPPTAgent:
             return False
         if "context and background for" in low or "key definitions and main parts" in low:
             return False
-        theme = AutoPPTAgent._slide_theme_keywords(title)
-        if theme & AutoPPTAgent._words(low):
+        theme = AutonomousPresenter._slide_theme_keywords(title)
+        if theme & AutonomousPresenter._words(low):
             return True
-        if AutoPPTAgent._subject_in_bullet(subj, low):
+        if AutonomousPresenter._subject_in_bullet(subj, low):
             return True
         return False
 
@@ -433,7 +433,7 @@ class AutoPPTAgent:
                         "Authorization": f"Bearer {key}",
                         "Content-Type": "application/json",
                         "HTTP-Referer": "https://github.com/gyasaswini10",
-                        "X-Title": "AutoPPT Agent"
+                        "X-Title": "Autonomous Presenter"
                     }
                     
                     enhanced_prompt = (
@@ -621,7 +621,7 @@ class AutoPPTAgent:
                         facts = [f for f in self._slide_fact_window(pool, idx, 8) if self.bullet_matches_slide(subj, title, f)]
                     facts_snip = json.dumps(facts[:10])[:1200]
 
-                    # 🧠 2. AI generation with enhanced prompt for specific content requirements
+                    # 🧠 2. Model generation with enhanced prompt for specific content requirements
                     if title == "Origins and Taxonomy" and subj.lower() == "tomato":
                         # Specialized prompt for tomato origins and taxonomy
                         enhanced_prompt = (
@@ -644,8 +644,8 @@ class AutoPPTAgent:
                             "No slang, no dictionary-style '(noun)' labels, no jokes. Mention the topic where natural."
                         )
                     
-                    ai_gen = await self.ask_llm(enhanced_prompt)
-                    bullets = ai_gen.get("bullets", [])
+                    model_gen = await self.ask_llm(enhanced_prompt)
+                    bullets = model_gen.get("bullets", [])
                     if isinstance(bullets, list):
                         bullets = [str(b).strip() for b in bullets if self._llm_bullet_ok(str(b))]
                     else:
@@ -682,6 +682,6 @@ def main():
     root = Path(__file__).resolve().parent.parent; out_dir = root / "savingfolder_output"; out_dir.mkdir(exist_ok=True)
     f_path = out_dir / Path(args.output).name; c = 1
     while f_path.exists(): f_path = out_dir / f"{Path(args.output).stem}_v{c}{Path(args.output).suffix}"; c += 1
-    asyncio.run(AutoPPTAgent(args.prompt, str(f_path.resolve())).execute())
+    asyncio.run(AutonomousPresenter(args.prompt, str(f_path.resolve())).execute())
 
 if __name__ == "__main__": main()

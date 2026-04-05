@@ -1,5 +1,0 @@
-env\Scripts\python client\agent_ppt.py "Create a 6-slide presentation on tomato" --output "tomato.pptx"
-
-env\Scripts\python client\agent_ppt.py "Create a presentation on chocolate" --output "chocolate.pptx"
-
-env\Scripts\python client\agent_ppt.py "Create a 6-slide presentation about renewable energy" --output "energy.pptx"

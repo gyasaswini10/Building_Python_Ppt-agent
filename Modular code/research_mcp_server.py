@@ -2,8 +2,8 @@
 MCP Server — lightweight topic facts for bullet content.
 
 This server uses a simple Wikipedia summary endpoint (best effort) and
-returns plausible fallback bullets when the lookup fails, so the agent
-never crashes on missing data (per assignment robustness requirement).
+returns plausible fallback bullets when the lookup fails, so the system
+never crashes on missing data.
 """
 
 import logging  # Quiet MCP/httpx INFO when spawned as stdio subprocess.
@@ -19,7 +19,7 @@ from mcp.server.fastmcp import FastMCP  # FastMCP provides the MCP server wrappe
 
 # Wikipedia often returns 403 without a descriptive User-Agent; required for reliable demos.
 _HTTP_HEADERS = {
-    "User-Agent": "AutoPPT-MCPAssignment/1.0 (educational assignment; python-httpx)",
+    "User-Agent": "Research-Agent/1.0 (educational; python-httpx)",
     "Accept": "application/json",
 }
 
