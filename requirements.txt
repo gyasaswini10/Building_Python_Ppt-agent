@@ -1,0 +1,7 @@
+# Auto-PPT assignment — pin major versions for reproducible installs.
+mcp>=1.0.0
+anthropic>=0.40.0
+huggingface-hub>=0.24.0
+python-pptx>=0.6.23
+httpx>=0.27.0
+python-dotenv>=1.0.0
