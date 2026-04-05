@@ -6,7 +6,7 @@ In the initial development phase, the agent successfully retrieved data but fail
 **The Solution:** I refactored the agent to use a **Thematic Keyword Expansion** filter (`_slide_theme_keywords`). This ensured that every bullet point fetched from the web was cross-referenced against a conceptual map of relevant terms before being "allowed" onto the slide. This represents an "agentic loop" that validates its own research quality.
 
 ### ❓ What intermediate features were explored but sidelined?
-I successfully implemented an **Image Integration Sync** for deep asset management. Evidence of this work can be found in the `savingfolder_output` directory:
+I **tried** implementing an **Image Integration Sync** for asset management, but ultimately the feature **failed due to alignment issues and time constraints**. Evidence of this effort is visible in the `savingfolder_output` directory:
 
 ```text
     Directory: C:\Users\gyasu\Desktop\CAlibo 
@@ -18,10 +18,17 @@ d-----        05-04-2026  10:27 PM                agent_assets
 d-----        05-04-2026  10:27 PM                genearted
 -a----        05-04-2026  10:27 PM         279277 FINAL_FROG_REPORT.pptx
 ```
-Although I successfully generated high-accuracy reports (like **FINAL_FROG_REPORT.pptx (279KB)**) with local asset buffers, the final coordination for research-backed image placement was sidelined due to strict time constraints.
+Although I generated reports with local asset buffers (evidenced by **`FINAL_FROG_REPORT.pptx`**), the coordination logic were refined to focus on high-accuracy research text synthesis first.
 
 ### ❓ How is the system made robust against API limits?
 To ensure the agent remains fully autonomous, I implemented **HuggingFace Key Rotation**. The system handles multiple tokens that are rotated dynamically based on availability and rate limits (429 errors), ensuring non-stop "Brain" operation for long research sessions.
+
+### ❓ Why did you use hardcoded thematic keyword mapping?
+Instead of using AI-based semantic similarity for every single fact check, I opted for a **Determinstic Logic Whitelist** (`_slide_theme_keywords`).
+*   **Scientific Grounding:** For an academic assignment, I needed to ensure the agent follows a precise scientific narrative (e.g., that an "Origins" slide must strictly cover taxonomy and nomenclature).
+*   **Preventing 'AI Drift':** By hardcoding these conceptual maps, I eliminated the risk of the LLM "hallucinating" relevant themes or including colloquial "lexicographical noise" (like slang or trivia) that didn't fit the scientific theme.
+*   **Performance Optimization:** This allows the agent to filter thousands of candidate facts instantaneously without the high latency or cost associated with repetitive LLM calls for every filter check.
+*   **Explainability:** It provides a clear, verifiable "logic gate" that instructors can audit, demonstrating that the agent's behavior is guided by a well-defined technical strategy rather than a "black box" prompt.
 
 ### ❓ How did MCP prevent you from writing hardcoded scripts?
 The **Model Context Protocol (MCP)** was the single most important architectural constraint in this project.

@@ -18,8 +18,34 @@ The "Auto-PPT" Agent is an agentic system that follows a structured loop to buil
 
 ---
 
-## 📂 Modular System Workflow: How it Works
+## 📂 Modular System Workflow: Visual Overview
 
+```mermaid
+graph TD
+    User["👤 User Prompt"] --> Brain["🧠 agent_ppt.py (Orchestrator)"]
+    
+    subgraph "The Handshake Session"
+        Brain <--> Sensors["📡 research_mcp_server.py (Sensors)"]
+        Brain <--> Designer["✍️ ppt_mcp_server.py (Hands)"]
+    end
+
+    subgraph "Agentic Loop (The 5-Stage Cycle)"
+        Stage1["1. INIT: Secure Handshake & Keys"] --> Stage2["2. PLAN: 6-Slide Hierarchy"]
+        Stage2 --> Stage3["3. RESEARCH: Context Ranking"]
+        Stage3 --> Stage4["4. CONSTRUCT: Layout Injection"]
+        Stage4 --> Stage5["5. FINAL: Disk Export (.pptx)"]
+    end
+
+    Brain --> Stage1
+    Sensors -.->|Validated Facts| Stage3
+    Stage3 <--> LLM["🤖 AI Synthesis & Key Rotation"]
+    Stage4 --> Designer
+    Designer --> Output["💿 Local Disk Artifact"]
+```
+
+---
+
+## 📂 Modular System Workflow: Component Breakdown
 The system architecture is distributed across three specialized files in the `Modular code/` directory:
 
 ### 1. `agent_ppt.py` (The Orchestrator / Brain)
@@ -45,14 +71,47 @@ The system architecture is distributed across three specialized files in the `Mo
 
 ---
 
-## 🛠️ Assignment Technical Checklist
-| Feature | Technical Implementation |
-| :--- | :--- |
-| **MCP Integration** | Fully implemented using Stdio Transport across three modular files. |
-| **Agentic Loop** | Uses a 6-stage scientific planning strategy before fetching content. |
-| **Content Generation** | Each slide contains 5 strictly-filtered, research-backed bullet points. |
-| **Image Handling** | Automatically embeds topical images when available in source metadata. |
-| **Error Handling** | redundant search paths and Dictionary-based fallback mechanisms ensure the system never crashes. |
+## 🛠️ Individual Tool Technical Reference
+
+Each MCP server exposes specific tools that the Agent orchestrates in a logical sequence. Here is the technical breakdown:
+
+### **Research Server Tools**
+*   **`search_topic(query, slide_title)`**:
+    *   **Usage**: The agent calls this for every slide.
+    *   **Logic**: It converts the prompt into a Wikipedia-safe slug. It then ranks retrieved sentences based on their overlap with the `slide_title` to ensure "Taxonomy" facts don't end up on a "Lifecycle" slide.
+    *   **Fallbacks**: If Wikipedia is unreachable, it automatically queries the Dictionary API for encyclopedic definitions.
+
+### **PowerPoint Server Tools**
+*   **`create_pptx(title)`**:
+    *   **Usage**: Called during the **INIT** stage.
+    *   **Logic**: Initializes an in-memory `Presentation` object and generates a unique `session_id`. It creates the title slide with the midnight-navy theme.
+*   **`add_slide(session_id, slide_title, bullets)`**:
+    *   **Usage**: Called iteratively for each of the 6 scientific slides.
+    *   **Logic**: Injects the filtered bullets into a professional layout. It uses deterministic shape coordinates (the "Designer Ribbons") to ensure aesthetic consistency without human intervention.
+*   **`save_presentation(session_id, output_path)`**:
+    *   **Usage**: Final stage of the agentic loop.
+    *   **Logic**: Flushes the in-memory slide data to the local disk at the specified path.
+
+### **The Orchestration Flow (How they work together)**
+1.  **Handshake**: `agent_ppt` calls `create_pptx` to get a `session_id`.
+2.  **Information Retrieval**: For Slide 1, the agent sends the topic to `search_topic`.
+3.  **Synthesis**: The agent passes the research results to the **LLM (with HF Key Rotation)** to refine them into 5 bullet points.
+4.  **Construction**: The finalized bullets are sent to `add_slide`.
+5.  **Persistence**: After Slide 6 is constructed, `save_presentation` is called to finalize the file.
 
 ---
+
+---
+
+## 🛠️ Assignment Technical Checklist
+| Feature | Technical Implementation | Status |
+| :--- | :--- | :--- |
+| **MCP Integration** | Implemented using Stdio Transport across three modular servers. | ✅ Complete |
+| **Agentic Loop** | Uses a 5-stage lifecycle (Plan-Research-Refine-Build-Finalize). | ✅ Complete |
+| **Scientific Accuracy** | Subject-specific thematic keyword whitelist used for content validation. | ✅ Complete |
+| **Content Redundancy** | Auto-fallback to Dictionary APIs if Wikipedia data is insufficient. | ✅ Complete |
+| **System Robustness** | Automated API token rotation to handle rate-limits and availability. | ✅ Complete |
+
+---
+
 **Built by YASASWINI**
