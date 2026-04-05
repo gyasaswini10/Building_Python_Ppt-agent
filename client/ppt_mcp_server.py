@@ -426,6 +426,91 @@ def add_smart_art(session_id: str, slide_index: int, steps: List[str]) -> dict:
 
 
 @mcp.tool()
+def delete_slide(session_id: str, slide_index: int) -> dict:
+    """Delete a slide from the presentation by index.
+
+    **Parameters:**
+        session_id: Active session.
+        slide_index: Index of slide to delete (0-based).
+
+    **Returns:** ``ok``, ``slides_total`` after deletion, ``deleted_index``.
+    """
+    if session_id not in _SESSIONS:
+        return {"ok": False, "error": "Invalid session_id"}
+
+    pres = _SESSIONS[session_id]
+    try:
+        # Validate slide index
+        if slide_index < 0 or slide_index >= len(pres.slides):
+            return {"ok": False, "error": f"Invalid slide_index: {slide_index}"}
+        
+        # Get the slide and its slide ID list entry
+        slide = pres.slides[slide_index]
+        sldId = pres.slides._sldIdLst[slide_index]
+        
+        # Remove the slide ID from the list
+        pres.slides._sldIdLst.remove(sldId)
+        
+        return {"ok": True, "slides_total": len(pres.slides), "deleted_index": slide_index}
+    except Exception as e:
+        return {"ok": False, "error": f"Failed to delete slide: {str(e)}"}
+
+
+@mcp.tool()
+def get_slide_info(session_id: str, slide_index: int = -1) -> dict:
+    """Get information about slides in the presentation.
+
+    **Parameters:**
+        session_id: Active session.
+        slide_index: Index of specific slide (-1 for all slides).
+
+    **Returns:** ``ok``, ``slides_info`` with titles and content.
+    """
+    if session_id not in _SESSIONS:
+        return {"ok": False, "error": "Invalid session_id"}
+
+    pres = _SESSIONS[session_id]
+    slides_info = []
+
+    try:
+        if slide_index == -1:
+            # Get all slides
+            for i, slide in enumerate(pres.slides):
+                slide_info = {
+                    "index": i,
+                    "title": "",
+                    "has_content": False
+                }
+                
+                # Try to get title
+                if slide.shapes.title:
+                    slide_info["title"] = slide.shapes.title.text or ""
+                
+                # Check if slide has content beyond title
+                if len(slide.shapes) > 1:
+                    slide_info["has_content"] = True
+                
+                slides_info.append(slide_info)
+        else:
+            # Get specific slide
+            if slide_index < 0 or slide_index >= len(pres.slides):
+                return {"ok": False, "error": f"Invalid slide_index: {slide_index}"}
+            
+            slide = pres.slides[slide_index]
+            slide_info = {
+                "index": slide_index,
+                "title": slide.shapes.title.text if slide.shapes.title else "",
+                "shapes_count": len(slide.shapes),
+                "has_content": len(slide.shapes) > 1
+            }
+            slides_info.append(slide_info)
+
+        return {"ok": True, "slides_info": slides_info, "total_slides": len(pres.slides)}
+    except Exception as e:
+        return {"ok": False, "error": f"Failed to get slide info: {str(e)}"}
+
+
+@mcp.tool()
 def save_presentation(session_id: str, output_path: str) -> dict:
     """Persist the deck to disk as a valid **``.pptx``** file (safe binary package).
 
