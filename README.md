@@ -17,6 +17,12 @@ The primary entry point for managing the automated workflow.
 - **Transparency**: Detailed line-by-line code documentation for maintenance and clarity.
 - **Theming**: Integrated high-end dark aesthetics with automated scientific hierarchies.
 
+### **Documentation Layer: `Project_Submission_Documentation.md`**
+Direct technical documentation describing the system's modular architecture, stage-based lifecycle, and technical requirements.
+
+### **Analysis Layer: `reflection.md`**
+Critical reflection addressing initial failure points (thematic relevance) and the architectural constraints enforced by the MCP protocol.
+
 ### **Processing Engine: `/Modular code`**
 The core processing layer is separated into specialized service modules:
 - **`agent_ppt.py`**: The system's primary orchestrator.
