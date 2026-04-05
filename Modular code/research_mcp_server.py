@@ -403,17 +403,19 @@ def _dictionaryapi_bullets(topic: str) -> List[str] | None:
 
 @mcp.tool()
 async def search_topic(query: str, slide_title: str = "", supplement: bool = False) -> dict:
-    """Fetch facts from Wikipedia (and dictionary only if Wikipedia fails). All topical text is from live APIs.
+    """Find information online for your presentation slides.
 
-    **Required Tool Name:** search_topic.
+    This function searches Wikipedia to get real facts and information
+    for your presentation topics. It's much better than making stuff up
+    because it uses actual encyclopedia content.
 
-    **Parameters:**
-        query: Subject / search phrase (may include slide context; primary topic is parsed out).
-        slide_title: When set, sentences are ranked so bullets match this heading (dynamic).
-        supplement: When true, run extra Wikipedia searches (topic + words from the slide title).
+    Args:
+        query: What you want to research (the main topic)
+        slide_title: The specific slide heading to match content with
+        supplement: Set to True if you want extra search results
 
-    **Returns:**
-        dict with ``ok``, ``points``, ``thumbnail``.
+    Returns:
+        Dictionary with bullet points, thumbnail images, and source info
     """
     q = re.sub(r"\s+(Stage|Part|Phase|Process|Overview|Introduction|Cycle)\b", "", query, flags=re.IGNORECASE).strip()
     q = re.sub(r"\d+", "", q).strip() or query

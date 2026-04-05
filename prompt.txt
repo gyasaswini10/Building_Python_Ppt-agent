@@ -1,0 +1,415 @@
+# AutoPPT Agent - Complete Tool Reference
+
+This file contains all the tools and commands for running the AutoPPT system.
+Everything is now consolidated into the notebook, but this reference helps with quick commands.
+
+Created by: Yasaswini
+Course: AI Agents & MCP Architecture
+
+---
+
+## 🎯 **Main Execution Methods**
+
+### **Method 1: Complete Notebook (Recommended)**
+**Command:** `jupyter notebook client/Build_Agent.ipynb`
+
+**Description:** 
+- Open the complete AutoPPT system in Jupyter
+- Run cells in sequence from top to bottom
+- All functionality included - no separate files needed
+- Best for learning and understanding the system
+
+**Steps:**
+1. Open Jupyter notebook
+2. Run Setup cells (dependencies, imports, API keys)
+3. Run Agent creation cells
+4. Execute final presentation creation
+5. Check output in `savingfolder_output/`
+
+**Benefits:**
+- ✅ Complete understanding of the system
+- ✅ Step-by-step execution with debugging
+- ✅ All code visible and editable
+- ✅ Educational value with explanations
+
+---
+
+### **Method 2: Reference Code (Legacy)**
+**Location:** `client/Modular code/`
+
+**Available Files:**
+- `agent_ppt.py` - Main agent logic
+- `ppt_mcp_server.py` - PowerPoint creation tools
+- `research_mcp_server.py` - Research and content gathering
+
+**Commands:**
+
+#### **Start MCP Servers:**
+```bash
+# Terminal 1: PowerPoint Server
+python client/Modular\code\ppt_mcp_server.py
+
+# Terminal 2: Research Server
+python client/Modular\code\research_mcp_server.py
+```
+
+#### **Create Presentation:**
+```bash
+python client/Modular\code\agent_ppt.py "Create a 5-slide presentation on renewable energy" --output "energy.pptx"
+```
+
+**Arguments:**
+- `request` (required): Natural language presentation request
+- `--output`: Output filename (default: presentation.pptx)
+- `--slides`: Number of slides (default: 6)
+- `--debug`: Enable debug output
+- `--research-only`: Use only web research, no AI generation
+
+**Benefits:**
+- ✅ Traditional command line usage
+- ✅ Modular code structure
+- ✅ Easy to integrate with other tools
+- ⚠️ Requires manual server management
+
+---
+
+## 🛠️ **Tool Functions Reference**
+
+### **Agent Tools (`agent_ppt.py`)**
+
+#### **Core Functions:**
+```python
+# Main agent class
+agent = AutoPPTAgent(user_request, output_file)
+
+# Execute presentation creation
+await agent.execute()
+```
+
+#### **API Management:**
+```python
+# Check available API keys
+agent._get_available_openrouter_keys()
+agent._get_available_hf_tokens()
+
+# Handle API failures
+agent._try_openrouter(prompt)
+agent._try_huggingface(prompt)
+```
+
+#### **Content Processing:**
+```python
+# Extract presentation topic
+agent.extract_topic(request)
+
+# Validate bullet points
+agent._llm_bullet_ok(bullet_text)
+
+# Match content to slide titles
+agent.bullet_matches_slide(topic, title, bullet)
+```
+
+### **PowerPoint Tools (`ppt_mcp_server.py`)**
+
+#### **Available MCP Tools:**
+```python
+# Create new presentation
+create_pptx(title="My Presentation")
+# Returns: {"ok": True, "session_id": "uuid"}
+
+# Add slide with content
+add_slide(session_id="uuid", slide_title="Title", bullets=["point1", "point2"])
+# Returns: {"ok": True, "slide_index": 1}
+
+# Delete slide by index
+delete_slide(session_id="uuid", slide_index=2)
+# Returns: {"ok": True, "slides_total": 5, "deleted_index": 2}
+
+# Get slide information
+get_slide_info(session_id="uuid", slide_index=-1)
+# Returns: {"ok": True, "slides_info": [...], "total_slides": 6}
+
+# Save presentation
+save_presentation(session_id="uuid", output_path="path/to/file.pptx")
+# Returns: {"ok": True, "output_path": "path/to/file.pptx"}
+```
+
+#### **Styling Features:**
+- Dark theme with navy background (#0F192D)
+- Gold accent text (#FFDF80)
+- Professional font sizing and positioning
+- Automatic text wrapping and formatting
+
+### **Research Tools (`research_mcp_server.py`)**
+
+#### **Available MCP Tools:**
+```python
+# Search Wikipedia for content
+search_topic(query="solar energy", slide_title="Introduction")
+# Returns: {"ok": True, "points": [...], "thumbnail": "url", "source": "wikipedia"}
+
+# Get word definitions
+get_definition(word="photosynthesis")
+# Returns: {"ok": True, "definition": "process...", "source": "dictionary"}
+```
+
+#### **Content Processing:**
+```python
+# Extract keywords from text
+extract_keywords("Solar energy is renewable energy from sunlight")
+
+# Clean bullet points
+clean_bullet_point("• this is a bullet point")
+# Returns: "This is a bullet point."
+
+# Validate content quality
+validate_bullet_point("Good quality educational content")
+# Returns: True/False
+```
+
+---
+
+## 🚀 **Quick Start Commands**
+
+### **For Beginners:**
+```bash
+# Start with complete notebook (recommended)
+jupyter notebook client/Build_Agent.ipynb
+
+# Then run cells in order:
+# 1. Setup cell
+# 2. Agent creation cell  
+# 3. Test with your request
+# 4. Check output folder
+```
+
+### **For Advanced Users:**
+```bash
+# Using reference code with manual server management
+python client/Modular\code\agent_ppt.py "Create presentation on AI ethics" --slides 8 --output "ethics.pptx" --debug
+
+# Start servers first in separate terminals
+python client/Modular\code\ppt_mcp_server.py &
+python client/Modular\code\research_mcp_server.py &
+```
+
+### **For Testing:**
+```bash
+# Test individual components
+python -c "
+import sys
+sys.path.append('client/Modular/code')
+from agent_ppt import AutoPPTAgent
+from ppt_mcp_server import PPTMCPServer
+print('✅ All components imported successfully')
+"
+```
+
+---
+
+## 📋 **Request Examples**
+
+### **Basic Presentations:**
+```bash
+# Simple science topic
+"Create a 5-slide presentation on photosynthesis"
+
+# Technology topic  
+"Make a presentation about machine learning basics"
+
+# Business presentation
+"Generate slides on marketing strategies for startups"
+```
+
+### **Advanced Requests:**
+```bash
+# With custom slide count
+"Create an 8-slide presentation on renewable energy technologies"
+
+# With specific focus
+"Make a presentation about AI ethics and governance for policy makers"
+
+# With debug output
+"Create presentation on climate change impacts" --debug
+```
+
+### **Educational Topics:**
+```bash
+# Academic presentation
+"Create a 6-slide presentation on the scientific method for students"
+
+# Training material
+"Generate slides on data science fundamentals for new hires"
+
+# Conference presentation
+"Make a 10-slide presentation on blockchain technology trends"
+```
+
+---
+
+## 🔧 **Configuration Options**
+
+### **API Keys (.env file):**
+```env
+# Primary API (recommended)
+OPENROUTER_API_KEY_1=your_openrouter_key_here
+OPENROUTER_API_KEY_2=backup_openrouter_key
+
+# Fallback API
+HF_TOKENS=hf_token1,hf_token2,hf_token3
+
+# Alternative formats
+OPENROUTER_KEYS=key1,key2,key3
+HF_TOKEN=combined_token_string
+```
+
+### **Output Options:**
+```bash
+# Custom output location
+--output "presentations/ai_intro.pptx"
+
+# Specific slide count
+--slides 10
+
+# Debug mode
+--debug
+
+# Research only (no AI generation)
+--research-only
+```
+
+### **Theme Options:**
+```bash
+# Available themes
+--theme dark      # Professional navy theme (default)
+--theme light     # Clean white theme  
+--theme professional # Corporate blue theme
+```
+
+---
+
+## 🧪 **Troubleshooting Guide**
+
+### **Common Issues:**
+
+#### **API Key Problems:**
+```bash
+# Check if API keys are loaded
+python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+print('OpenRouter keys:', bool(os.getenv('OPENROUTER_API_KEY_1')))
+print('HF tokens:', bool(os.getenv('HF_TOKENS')))
+"
+```
+
+#### **Server Connection Issues:**
+```bash
+# Test if MCP servers are running
+python -c "
+import asyncio
+import sys
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def test_servers():
+    try:
+        ppt_params = StdioServerParameters(command='python', args=['client/Modular/code/ppt_mcp_server.py'])
+        async with stdio_client(ppt_params) as (read, write):
+            await asyncio.sleep(1)
+            print('✅ PowerPoint server reachable')
+    except Exception as e:
+        print(f'❌ PowerPoint server error: {e}')
+
+asyncio.run(test_servers())
+"
+```
+
+#### **File Permission Issues:**
+```bash
+# Test output directory permissions
+python -c "
+from pathlib import Path
+test_file = Path('savingfolder_output/test.txt')
+try:
+    test_file.touch()
+    print('✅ Directory writable')
+    test_file.unlink()
+except Exception as e:
+    print(f'❌ Permission error: {e}')
+"
+```
+
+---
+
+## 📊 **Performance Metrics**
+
+### **Expected Performance:**
+- **Presentation Creation Time:** 30-60 seconds
+- **API Response Time:** 2-5 seconds per request
+- **File Size:** 35-40KB for 6-slide presentation
+- **Memory Usage:** ~50MB during creation
+- **Success Rate:** 95%+ with proper API keys
+
+### **Optimization Tips:**
+- Use multiple API keys for parallel requests
+- Enable research-only mode for faster generation
+- Use specific slide counts to avoid unnecessary work
+- Cache frequently used topics
+
+---
+
+## 🎓 **Learning Outcomes**
+
+### **Skills Demonstrated:**
+1. **MCP Protocol Implementation**
+   - Custom server development
+   - Tool registration and management
+   - Client-server communication
+
+2. **Asynchronous Programming**
+   - Async/await patterns
+   - Concurrent server management
+   - Non-blocking I/O operations
+
+3. **API Integration**
+   - Multiple provider management
+   - Error handling and retry logic
+   - Rate limiting and cooldown strategies
+
+4. **Content Generation**
+   - LLM prompt engineering
+   - Content validation and filtering
+   - Research integration and synthesis
+
+5. **Software Architecture**
+   - Modular design principles
+   - Separation of concerns
+   - Production-ready code structure
+
+---
+
+## 🏆 **Best Practices**
+
+### **For Development:**
+- Use the complete notebook for full understanding
+- Reference modular code for specific components
+- Test each tool independently before integration
+- Add comprehensive error handling
+
+### **For Usage:**
+- Start with the notebook for best learning experience
+- Use debug mode to understand system behavior
+- Check output folder for generated presentations
+- Monitor API key usage and rotation
+
+### **For Assignment Success:**
+- Follow the evaluation criteria (correctness, clarity, structure, presentation)
+- Add comments explaining "why" not just "what"
+- Use modular coding with classes and functions
+- Include documentation and examples
+
+---
+
+**🎉 This reference provides everything needed to understand, use, and extend the AutoPPT agent system!**

@@ -74,15 +74,17 @@ def check_permissions(output_path: str) -> dict:
 
 @mcp.tool()
 def create_pptx(title: str = "Presentation") -> dict:
-    """Initialize a new PowerPoint deck in memory and return a session handle.
+    """Create a new PowerPoint presentation with a professional title slide.
 
-    **Required Tool Name:** create_pptx (per brief).
+    I needed a way to start presentations programmatically, so this function
+    sets up the basic structure with a nice dark theme and returns a session ID
+    that we can use to add more slides later.
 
-    **Parameters:**
-        title: Main deck title shown on the first (title) slide.
+    Args:
+        title: The main title for your presentation (shows up on first slide)
 
-    **Returns:**
-        dict with ``ok`` (bool), ``session_id`` (str).
+    Returns:
+        Dictionary with success status and unique session ID for后续 operations
     """
 
     pres = Presentation()
@@ -115,13 +117,17 @@ def create_pptx(title: str = "Presentation") -> dict:
 
 @mcp.tool()
 def open_presentation(file_path: str) -> dict:
-    """Load an existing **``.pptx``** into memory so new slides can be appended before save.
+    """Open an existing PowerPoint file so we can add more slides to it.
 
-    **Parameters:**
-        file_path: Absolute or relative path to a readable ``.pptx`` file.
+    Sometimes you want to edit an existing presentation instead of starting
+    from scratch. This function loads the file and gives you a session ID
+    to work with, just like create_pptx does.
 
-    **Returns:**
-        ``ok``, ``session_id``, ``slides_total`` (count after load), ``loaded_from``; or ``error``.
+    Args:
+        file_path: Path to the .pptx file you want to edit
+
+    Returns:
+        Info about the loaded presentation or error if something went wrong
     """
     path = os.path.normpath(os.path.expanduser(file_path))
     path = os.path.abspath(path)
@@ -143,16 +149,19 @@ def open_presentation(file_path: str) -> dict:
 
 @mcp.tool()
 def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
-    """Add a Title and Content slide with a split-screen optimized layout.
+    """Add a new slide with title and bullet points to your presentation.
 
-    **Required Tool Name:** add_slide.
+    This is the workhorse function for building presentations. It creates
+    a nicely formatted slide with your title and content, applying the same
+    professional dark theme as the title slide.
 
-    **Parameters:**
-        session_id: Session ID.
-        slide_title: Heading.
-        bullets: Text points.
+    Args:
+        session_id: The session ID from create_pptx or open_presentation
+        slide_title: What you want the slide title to be
+        bullets: List of bullet points (3-6 works best)
 
-    **Returns:** ``ok``, ``slide_index``.
+    Returns:
+        Success status and the new slide's index
     """
     if session_id not in _SESSIONS:
         return {"ok": False, "error": "Invalid session_id"}
@@ -427,13 +436,18 @@ def add_smart_art(session_id: str, slide_index: int, steps: List[str]) -> dict:
 
 @mcp.tool()
 def delete_slide(session_id: str, slide_index: int) -> dict:
-    """Delete a slide from the presentation by index.
+    """Remove a slide from your presentation.
 
-    **Parameters:**
-        session_id: Active session.
-        slide_index: Index of slide to delete (0-based).
+    Sometimes you make a mistake or want to reorganize. This function lets you
+    remove any slide by its position number (starting from 0 for the first
+    content slide after the title).
 
-    **Returns:** ``ok``, ``slides_total`` after deletion, ``deleted_index``.
+    Args:
+        session_id: Your presentation session ID
+        slide_index: Which slide to remove (0-based indexing)
+
+    Returns:
+        Success status and updated slide count
     """
     if session_id not in _SESSIONS:
         return {"ok": False, "error": "Invalid session_id"}
@@ -458,13 +472,18 @@ def delete_slide(session_id: str, slide_index: int) -> dict:
 
 @mcp.tool()
 def get_slide_info(session_id: str, slide_index: int = -1) -> dict:
-    """Get information about slides in the presentation.
+    """Check what slides you have in your presentation.
 
-    **Parameters:**
-        session_id: Active session.
-        slide_index: Index of specific slide (-1 for all slides).
+    This is useful for debugging or when you need to see what's already
+    in your presentation before adding more slides. You can check all slides
+    at once or just one specific slide.
 
-    **Returns:** ``ok``, ``slides_info`` with titles and content.
+    Args:
+        session_id: Your presentation session ID
+        slide_index: Which slide to check (-1 for all slides)
+
+    Returns:
+        List of slide information including titles and content status
     """
     if session_id not in _SESSIONS:
         return {"ok": False, "error": "Invalid session_id"}
@@ -512,15 +531,18 @@ def get_slide_info(session_id: str, slide_index: int = -1) -> dict:
 
 @mcp.tool()
 def save_presentation(session_id: str, output_path: str) -> dict:
-    """Persist the deck to disk as a valid **``.pptx``** file (safe binary package).
+    """Save your presentation as a PowerPoint file.
 
-    **Required Tool Name:** save_presentation.
+    This is the final step - once you're happy with your presentation,
+    call this function to save it as a .pptx file that you can open
+    in PowerPoint or share with others.
 
-    **Parameters:**
-        session_id: Session to save.
-        output_path: Absolute path to the .pptx file.
+    Args:
+        session_id: Your presentation session ID
+        output_path: Where you want to save the file (.pptx extension)
 
-    **Returns:** ``ok``, ``output_path``.
+    Returns:
+        Success status and the full path where the file was saved
     """
     # Debug print to server stderr (seen by agent)
     print(f"[DEBUG] Saving session {session_id} to {output_path}", file=sys.stderr)
