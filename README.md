@@ -1,54 +1,118 @@
 demo vedio link : https://drive.google.com/file/d/1JfxPmNVy4kLWcd53rKCmejVOCKFKGTx5/view?usp=sharing
 
-# ✨ Autonomous Scientific Presentation System
+# ✨ Autonomous Scientific Presentation System - Technical Documentation & Reflection
+## **Autonomous Presentation Agent (Modular Implementation)**
 
-High-accuracy generation of research-backed presentations using multi-layered automation and modular architecture.
-
----
-
-## **1. Project Overview**
-This repository provides an automated engine for scientific visualization. The system is engineered for modularity, separating fact-retrieval from design logic to ensure consistent slide quality and data integrity.
-
-## **2. Key Project Assets**
-
-### **System Logic: `Build_Agent.ipynb`**
-The primary entry point for managing the automated workflow.
-- **Modularity**: Implements encapsulated classes for design and orchestration.
-- **Transparency**: Detailed line-by-line code documentation for maintenance and clarity.
-- **Theming**: Integrated high-end dark aesthetics with automated scientific hierarchies.
-
-### **Documentation Layer: `Project_Submission_Documentation.md`**
-Direct technical documentation describing the system's modular architecture, stage-based lifecycle, and technical requirements.
-
-### **Analysis Layer: `reflection.md`**
-Critical reflection addressing initial failure points (thematic relevance) and the architectural constraints enforced by the MCP protocol.
-
-### **Processing Engine: `/Modular code`**
-The core processing layer is separated into specialized service modules:
-- **`agent_ppt.py`**: The system's primary orchestrator.
-- **`ppt_mcp_server.py`**: Dedicated server for PowerPoint structure and themes.
-- **`research_mcp_server.py`**: Specialized server for information retrieval (Wikipedia/Dictionary).
-
-### **Walkthrough: `DEMO_VEDIO_PPt_agent.mp4`**
-A visual screen-recording of the system in action:
-1. Terminal command-line execution.
-2. Live slide generation and real-time research synthesis.
-3. Final PowerPoint output showcasing precise scientific alignment.
+**Developer:** YASASWINI  
+**Course:** AI Agents & MCP Architecture  
+**Objective:** To design and implement a functional, modular agent that coordinates multiple MCP servers to autonomously research and generate professional PowerPoint presentations based on a user's single-sentence prompt.
 
 ---
 
-## **3. Structural Hierarchy (6-Slide Standard)**
-Every presentation follows a standard scientific curriculum:
-1. **Origins & Taxonomy**: Historical context and nomenclature.
-2. **Physiological & Structural Features**: Biological morphology and anatomy.
-3. **Biological Growth & Lifecycle**: Reproduction and lifecycle phases.
-4. **Ecological & Environmental Roles**: Habitat impact and ecosystem role.
-5. **Industrial & Societal Impact**: Commercial, nutritional, and social relevance.
-6. **Future Research & Conservation**: Future prospects and sustainability outlook.
+## 🚀 PART 1: Project Overview & Features
+The "Auto-PPT" Agent is an agentic system that follows a structured loop to build scientifically accurate presentations. By leveraging the **Model Context Protocol (MCP)**, the system separates cognitive tasks (Research and Planning) from execution tasks (PowerPoint generation).
+
+### **Key Technical Features:**
+- **Dynamic Research Loop:** Uses the Research MCP server to fetch encyclopedia-grade facts from Wikipedia and safe-hallucination fallbacks from Dictionary APIs.
+- **Agentic Slide Planning:** Before writing, the agent establishes a 6-slide thematic hierarchy (Taxonomy, Physiology, Lifecycle, etc.) to ensure logical narrative flow.
+- **Relatability Whitelist:** Implements a deterministic keyword mapping to keep the AI focused on professional scientific data.
+- **Modular Decoupling:** Separates the core agent brain from the tool servers, allowing for independent scaling and maintenance.
+- **Professional Aesthetics:** Automatically applies a Midnight Navy and Gold theme with precise alignment and designer ribbons.
 
 ---
 
-## **4. Technical Specification**
-- **Modular Design**: Complete separation of tool discovery and tool execution.
-- **Fact Integrity**: Uses validated REST APIs to minimize data hallucinations.
-- **Design Stability**: Uses `python-pptx` with predefined professional color tokens.
+## 📂 PART 2: Modular System Workflow
+
+### Visual Overview
+```mermaid
+graph TD
+    User["👤 User Prompt"] --> Brain["🧠 agent_ppt.py (Orchestrator)"]
+    
+    subgraph "The Handshake Session"
+        Brain <--> Sensors["📡 research_mcp_server.py (Sensors)"]
+        Brain <--> Designer["✍️ ppt_mcp_server.py (Hands)"]
+    end
+
+    subgraph "Agentic Loop (The 5-Stage Cycle)"
+        Stage1["1. INIT: Secure Handshake & Keys"] --> Stage2["2. PLAN: 6-Slide Hierarchy"]
+        Stage2 --> Stage3["3. RESEARCH: Context Ranking"]
+        Stage3 --> Stage4["4. CONSTRUCT: Layout Injection"]
+        Stage4 --> Stage5["5. FINAL: Disk Export (.pptx)"]
+    end
+
+    Brain --> Stage1
+    Sensors -.->|Validated Facts| Stage3
+    Stage3 <--> LLM["🤖 AI Synthesis & Key Rotation"]
+    Stage4 --> Designer
+    Designer --> Output["💿 Local Disk Artifact"]
+```
+
+### Component Breakdown
+1. **`agent_ppt.py` (The Brain):** Manages the high-level logic, API fallbacks, and tool coordination.
+2. **`ppt_mcp_server.py` (The Hands):** Handles all PowerPoint manipulation, session management, and visual formatting using `python-pptx`.
+3. **`research_mcp_server.py` (The Senses):** Queries external APIs (Wikipedia/Dictionary) and ranks facts based on thematic relevance.
+
+---
+
+## 🛠️ PART 3: Individual Tool Technical Reference
+
+### **Research Server Tools**
+*   **`search_topic(query, slide_title)`**:
+    *   **Usage**: The agent calls this for every slide.
+    *   **Logic**: It converts the prompt into a Wikipedia-safe slug and ranks sentences to ensure thematic relevance across the scientific hierarchy.
+    *   **Fallbacks**: Automatically queries the Dictionary API if primary sources are unreachable.
+
+### **PowerPoint Server Tools**
+*   **`create_pptx(title)`**: Called during the **INIT** stage to initialize an in-memory `Presentation` object.
+*   **`add_slide(session_id, slide_title, bullets)`**: Injects filtered bullets into professional layouts with deterministic "Designer Ribbons".
+*   **`save_presentation(session_id, output_path)`**: Flushes the in-memory slide data to the local disk.
+
+---
+
+## 🛠️ PART 4: Assignment Technical Checklist
+| Feature | Technical Implementation | Status |
+| :--- | :--- | :--- |
+| **MCP Integration** | Implemented using Stdio Transport across three modular servers. | ✅ Complete |
+| **Agentic Loop** | Uses a 5-stage lifecycle (Plan-Research-Refine-Build-Finalize). | ✅ Complete |
+| **Scientific Accuracy** | Subject-specific thematic keyword whitelist used for content validation. | ✅ Complete |
+| **Content Redundancy** | Auto-fallback to Dictionary APIs if Wikipedia data is insufficient. | ✅ Complete |
+| **System Robustness** | Automated API token rotation to handle rate-limits and availability. | ✅ Complete |
+
+---
+
+## 🧠 PART 5: Project Reflection & Analysis
+
+### ❓ Where did your agent fail its first attempt?
+In the initial development phase, the agent successfully retrieved data but failed at **thematic synthesis**. Specifically, when tasked with research-heavy slides like *Origins and Taxonomy*, it would often include irrelevant "lexicographical noise" (such as slang synonyms) that degraded the professional quality.
+
+**The Solution:** I refactored the agent to use a **Thematic Keyword Expansion** filter (`_slide_theme_keywords`). This ensured that every bullet point fetched from the web was cross-referenced against a conceptual map before being allowed on the slide.
+
+### ❓ What intermediate features were explored but sidelined?
+I **tried** implementing an **Image Integration Sync** for asset management, but ultimately the feature **failed due to alignment issues and time constraints**. Evidence of this effort is visible in the `\savingfolder_output` directory:
+
+```text
+    Directory: C:\Users\gyasu\Desktop\CAlibo 
+    noww\ASSIGNMENT\savingfolder_output
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----                agent_assets (Folder Logic)
+d-----                genearted (Visual Assets)
+-a----         279277 FINAL_FROG_REPORT.pptx (279KB Output)
+```
+Although I generated full reports with local asset buffers, the coordination logic were refined to focus on high-accuracy research text synthesis first.
+
+### ❓ Why did you use hardcoded thematic keyword mapping?
+I opted for a **Determinstic Logic Whitelist** (`_slide_theme_keywords`) to ensure **Scientific Grounding**. This eliminates the risk of "AI Drift" and hallucinations, ensuring the agent remains strictly within professional boundaries while bypassing the latency of repetitive LLM filter checks.
+
+### ❓ How is the system made robust against API limits?
+To ensure the agent remains fully autonomous, I implemented **HuggingFace Key Rotation**. The system handles multiple tokens that are rotated dynamically based on availability and rate limits (429 errors), ensuring non-stop operation during long research sessions.
+
+### ❓ How did MCP prevent you from writing hardcoded scripts?
+**Separation of Concerns:** MCP made it impossible to hardcoded the `python-pptx` library directly into the brain. It forced me to build a standalone **PPT MCP Server** with clear tool boundaries, turning the agent into a true "orchestrator" rather than a monolithic script.
+
+### ❓ How do you handle duplicate output paths or existing folders?
+I implemented a **Non-Destructive Versioning** strategy. If the user specifies an output path where a folder already exists, the system appends version suffixes (e.g., `_V1`, `_V2`) rather than deleting previous work, ensuring data preservation.
+
+---
+**Built with Precision by YASASWINI**
