@@ -156,6 +156,46 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
     return {"ok": True, "slides_total": len(pres.slides), "slide_index": slide_index}
 
 @mcp.tool()
+def delete_slide(session_id: str, slide_index: int) -> dict:
+    """
+    Removes a slide from the presentation by its index.
+    Why: Allows the agent to 'correct' its narrative flow if it determines a slide is redundant.
+    """
+    if session_id not in _SESSIONS:
+        return {"ok": False, "error": "Invalid session_id"}
+    
+    pres = _SESSIONS[session_id]
+    try:
+        # Standard logic to delete a slide using the python-pptx API internal slide list manipulation.
+        xml_slides = pres.slides._sldIdLst
+        slides = list(xml_slides)
+        xml_slides.remove(slides[slide_index])
+        return {"ok": True, "message": f"Slide {slide_index} removed successfully."}
+    except IndexError:
+        return {"ok": False, "error": f"Slide index {slide_index} is out of bounds."}
+
+@mcp.tool()
+def get_ppt_info(session_id: str) -> dict:
+    """
+    Retrieves metadata about the current state of a presentation.
+    Why: Bridges the 'Sensing' gap by allowing the agent to audit its progress.
+    """
+    if session_id not in _SESSIONS:
+        return {"ok": False, "error": "Invalid session_id"}
+    
+    pres = _SESSIONS[session_id]
+    slides_info = []
+    for i, slide in enumerate(pres.slides):
+        title = slide.shapes.title.text if slide.shapes.title else "Untitled"
+        slides_info.append({"index": i, "title": title})
+    
+    return {
+        "ok": True, 
+        "slide_count": len(pres.slides),
+        "slides": slides_info
+    }
+
+@mcp.tool()
 def save_presentation(session_id: str, output_path: str) -> dict:
     """
     The final logic gate to persist the in-memory deck to the disk.

@@ -61,9 +61,30 @@ graph TD
     *   **Fallbacks**: Automatically queries the Dictionary API if Wikipedia data is insufficient.
 
 ### **PowerPoint Server Tools**
-*   **`create_pptx(title)`**: Called during the **INIT** stage to initialize an in-memory `Presentation` object.
-*   **`add_slide(session_id, slide_title, bullets)`**: Injects filtered bullets into professional layouts with deterministic "Designer Ribbons".
-*   **`save_presentation(session_id, output_path)`**: Flushes the in-memory slide data to the local disk.
+*   **`create_pptx(title)`**: 
+    - Initializes a new PowerPoint session with a professional Midnight Navy and Gold theme.
+    - Generates a unique, collision-proof session ID to manage multiple concurrent decks in memory.
+    - Automatically creates a styled title slide with branded sub-titles for an immediate 5-star impact.
+*   **`add_slide(session_id, slide_title, bullets)`**: 
+     - Injects research-backed content into professional layouts with consistent alignment and designer ribbons.
+     - Automatically applies readable typography (Pt 18+) and standardizes font colors for a consistent theme.
+     - Dynamically draws a "Science Blue" accent ribbon at the bottom of every slide to maintain visual identity.
+*   **`delete_slide(session_id, slide_index)`**:
+    - Provides a "Corrective Logic" tool for the agent to prune redundant or off-topic slides from the deck.
+    - Allows for granular control over the narrative flow by removing specific slides by their integer index.
+    - Ensures that in-memory state remains clean and optimized before the final disk persistence stage.
+*   **`get_ppt_info(session_id)`**:
+    - Acts as the "Audit Sense" for the agent, retrieving slide counts and current scientific headings.
+    - Enables stateful agents to "see" their own progress before deciding which topic to research next.
+    - Crucial for long-running workflows that require verifying the integrity of previously constructed content.
+*   **`save_presentation(session_id, output_path)`**: 
+    - Flushes the in-memory slide data to the local disk at the specified path for persistence.
+    - Finalizes the agentic lifecycle by delivering a physical artifact to the user.
+
+### **Claude Desktop Integration**
+- Seamlessly integrates with Claude Desktop via the Model Context Protocol (MCP) using a Stdio transport bridge.
+- Allows the LLM to directly "see" and "use" these tools from within its native chat interface for real-time automation.
+- Bridges the gap between cognitive reasoning and file-system execution for true autonomous agentic behavior.
 
 ---
 
