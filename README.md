@@ -1,7 +1,7 @@
 demo vedio link : https://drive.google.com/file/d/1JfxPmNVy4kLWcd53rKCmejVOCKFKGTx5/view?usp=sharing
 
-# ✨ Autonomous Scientific Presentation System - Technical Documentation & Reflection
-## **Autonomous Presentation Agent (Modular Implementation)**
+# ✨ Autonomous MCP-Based Presentation Agent (PPT Generation)
+## **Technical Documentation & Reflection**
 
 **Developer:** YASASWINI  
 **Course:** AI Agents & MCP Architecture  
@@ -10,7 +10,7 @@ demo vedio link : https://drive.google.com/file/d/1JfxPmNVy4kLWcd53rKCmejVOCKFKG
 ---
 
 ## 🚀 PART 1: Project Overview & Features
-The "Auto-PPT" Agent is an agentic system that follows a structured loop to build scientifically accurate presentations. By leveraging the **Model Context Protocol (MCP)**, the system separates cognitive tasks (Research and Planning) from execution tasks (PowerPoint generation).
+The "Auto-PPT" Agent is an agentic system that follows a structured loop to build high-quality presentations. By leveraging the **Model Context Protocol (MCP)**, the system separates cognitive tasks (Research and Planning) from execution tasks (PowerPoint generation).
 
 ### **Key Technical Features:**
 - **Dynamic Research Loop:** Uses the Research MCP server to fetch encyclopedia-grade facts from Wikipedia and safe-hallucination fallbacks from Dictionary APIs.
@@ -101,6 +101,12 @@ d-----                genearted (Visual Assets)
 -a----         279277 FINAL_FROG_REPORT.pptx (279KB Output)
 ```
 Although I generated full reports with local asset buffers, the coordination logic were refined to focus on high-accuracy research text synthesis first.
+
+### ❓ Why the Scientific Hierarchy (6-Slide Standard)?
+Instead of a generic slide deck, I implemented a strict 6-slide scientific curriculum (Taxonomy, Physiology, Lifecycle, etc.).
+*   **Logical Evaluation:** Scientific topics (e.g., Star Lifecycle) have a defined "Ground Truth" order. This allows an evaluator to see if the agent's **Agentic Planning** stage successfully correctly ordered the data chronologically or morphologically.
+*   **Fact Integrity:** It provides a clear metric for **Retrieval Accuracy**. A scientific slide requires specific facts (Species names, Biological phases), making it easier to verify that the **Research Senses (MCP)** didn't hallucinate generic filler.
+*   **Professionalism:** It demonstrates that the agent can handle complex, structured data rather than just shallow text-generation.
 
 ### ❓ Why did you use hardcoded thematic keyword mapping?
 I opted for a **Determinstic Logic Whitelist** (`_slide_theme_keywords`) to ensure **Scientific Grounding**. This eliminates the risk of "AI Drift" and hallucinations, ensuring the agent remains strictly within professional boundaries while bypassing the latency of repetitive LLM filter checks.

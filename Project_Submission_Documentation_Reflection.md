@@ -1,5 +1,5 @@
-# 📜 Project: The "Auto-PPT" Agent - Technical Documentation & Reflection
-## **Autonomous Presentation Agent (Modular Implementation)**
+# ✨ Autonomous MCP-Based Presentation Agent (PPT Generation)
+## **Technical Documentation & Reflection**
 
 **Developer:** YASASWINI  
 **Course:** AI Agents & MCP Architecture  
@@ -8,7 +8,7 @@
 ---
 
 ## 🚀 PART 1: Project Overview & Features
-The "Auto-PPT" Agent is an agentic system that follows a structured loop to build scientifically accurate presentations. By leveraging the **Model Context Protocol (MCP)**, the system separates cognitive tasks (Research and Planning) from execution tasks (PowerPoint generation).
+The "Auto-PPT" Agent is an agentic system that follows a structured loop to build high-quality presentations. By leveraging the **Model Context Protocol (MCP)**, the system separates cognitive tasks (Research and Planning) from execution tasks (PowerPoint generation).
 
 ### **Key Technical Features:**
 - **Dynamic Research Loop:** Uses the Research MCP server to fetch encyclopedia-grade facts from Wikipedia and safe-hallucination fallbacks from Dictionary APIs.
