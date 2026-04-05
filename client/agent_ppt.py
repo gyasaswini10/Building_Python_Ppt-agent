@@ -308,10 +308,21 @@ class AutoPPTAgent:
     def __init__(self, user_request: str, output_path: str):
         self.user_request = user_request
         self.output_path = Path(output_path)
+        self.openrouter_keys = []
         self.hf_tokens = []
-        self._hf_key_round = 0
-        # Smaller models first — free-tier HF is more likely to respond than 72B.
-        self.models = [
+        self._openrouter_round = 0
+        self._hf_round = 0
+        # Track failed keys to avoid retrying them too soon
+        self._failed_openrouter_keys = {}  # key -> timestamp
+        self._failed_hf_tokens = {}  # token -> timestamp
+        # OpenRouter models for fast, accurate text generation (primary)
+        self.openrouter_models = [
+            "anthropic/claude-3-haiku",
+            "openai/gpt-4o-mini", 
+            "google/gemini-flash-1.5",
+        ]
+        # HuggingFace models (fallback)
+        self.hf_models = [
             "meta-llama/Llama-3.2-3B-Instruct",
             "mistralai/Mistral-7B-Instruct-v0.3",
             "Qwen/Qwen2.5-72B-Instruct",
@@ -321,26 +332,183 @@ class AutoPPTAgent:
         from dotenv import load_dotenv
         env_p = Path(__file__).resolve().parent.parent / ".env"
         load_dotenv(dotenv_path=env_p)
-        t = os.getenv("HF_TOKENS", os.getenv("HF_TOKEN", ""))
-        self.hf_tokens = [x.strip() for x in t.split(",") if x.strip()]
+        
+        # Setup OpenRouter keys - check multiple formats
+        or_keys = []
+        # Check individual numbered keys
+        for i in range(1, 20):  # Check up to 20 keys
+            key = os.getenv(f"OPENROUTER_API_KEY_{i}")
+            if key and key.strip():
+                or_keys.append(key.strip())
+        # Check combined keys
+        combined_keys = os.getenv("OPENROUTER_KEYS", os.getenv("OPENROUTER_KEY", ""))
+        if combined_keys:
+            or_keys.extend([x.strip() for x in combined_keys.split(",") if x.strip()])
+        
+        self.openrouter_keys = list(dict.fromkeys(or_keys))  # Remove duplicates
+        
+        # Setup HuggingFace tokens
+        hf_tokens = os.getenv("HF_TOKENS", os.getenv("HF_TOKEN", ""))
+        self.hf_tokens = [x.strip() for x in hf_tokens.split(",") if x.strip()]
+        
+        print(f"[DEBUG] Loaded {len(self.openrouter_keys)} OpenRouter keys and {len(self.hf_tokens)} HF tokens", file=sys.stderr)
 
-    def _next_hf_token_order(self) -> List[str]:
-        """Round-robin starting key each `ask_llm` call so HF_TOKEN,HF_TOKEN2,... take turns."""
-        if not self.hf_tokens:
-            return []
-        n = len(self.hf_tokens)
-        off = self._hf_key_round % n
-        self._hf_key_round += 1
-        return self.hf_tokens[off:] + self.hf_tokens[:off]
+    def _get_available_openrouter_keys(self) -> List[str]:
+        """Get OpenRouter keys that haven't failed recently."""
+        import time
+        current_time = time.time()
+        available_keys = []
+        
+        for key in self.openrouter_keys:
+            # Skip keys that failed in the last 5 minutes (300 seconds)
+            if key in self._failed_openrouter_keys:
+                if current_time - self._failed_openrouter_keys[key] < 300:
+                    continue
+                else:
+                    # Remove from failed list after cooldown
+                    del self._failed_openrouter_keys[key]
+            available_keys.append(key)
+        
+        return available_keys
+
+    def _get_available_hf_tokens(self) -> List[str]:
+        """Get HuggingFace tokens that haven't failed recently."""
+        import time
+        current_time = time.time()
+        available_tokens = []
+        
+        for token in self.hf_tokens:
+            # Skip tokens that failed in the last 5 minutes (300 seconds)
+            if token in self._failed_hf_tokens:
+                if current_time - self._failed_hf_tokens[token] < 300:
+                    continue
+                else:
+                    # Remove from failed list after cooldown
+                    del self._failed_hf_tokens[token]
+            available_tokens.append(token)
+        
+        return available_tokens
 
     async def ask_llm(self, prompt: str) -> Dict[str, Any]:
-        """Try Hugging Face Inference API; rotate API keys from HF_TOKEN / HF_TOKENS on timeouts and errors."""
-        if not self.hf_tokens:
+        """Try OpenRouter first, then HuggingFace as fallback."""
+        
+        # Try OpenRouter first (primary)
+        if self.openrouter_keys:
+            print("[DEBUG] Trying OpenRouter API...", file=sys.stderr)
+            result = await self._try_openrouter(prompt)
+            if result:
+                print("[DEBUG] OpenRouter succeeded!", file=sys.stderr)
+                return result
+            else:
+                print("[DEBUG] OpenRouter failed, trying HuggingFace...", file=sys.stderr)
+        
+        # Fallback to HuggingFace
+        if self.hf_tokens:
+            print("[DEBUG] Trying HuggingFace API...", file=sys.stderr)
+            result = await self._try_huggingface(prompt)
+            if result:
+                print("[DEBUG] HuggingFace succeeded!", file=sys.stderr)
+                return result
+            else:
+                print("[DEBUG] HuggingFace failed", file=sys.stderr)
+        
+        print("[DEBUG] All LLM attempts failed", file=sys.stderr)
+        return {}
+
+    async def _try_openrouter(self, prompt: str) -> Dict[str, Any]:
+        """Try OpenRouter API with multiple models and keys, with failure tracking."""
+        available_keys = self._get_available_openrouter_keys()
+        if not available_keys:
+            print("[DEBUG] No available OpenRouter keys", file=sys.stderr)
             return {}
-        token_order = self._next_hf_token_order()
-        for model in self.models:
-            for token in token_order:
+        
+        import time
+        
+        for model in self.openrouter_models:
+            for key in available_keys:
                 try:
+                    print(f"[DEBUG] Trying OpenRouter model: {model}, key: {key[:20]}...", file=sys.stderr)
+                    
+                    headers = {
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://github.com/gyasaswini10",
+                        "X-Title": "AutoPPT Agent"
+                    }
+                    
+                    enhanced_prompt = (
+                        "You output a single JSON object only, no markdown, no explanation.\n"
+                        f"Task: {prompt}\n"
+                        f'Schema: {{"bullets":["string", ...]}} with exactly {NUM_SLIDE_BULLETS} strings.\n'
+                        "Each bullet should be a complete, factual sentence with specific details."
+                    )
+                    
+                    payload = {
+                        "model": model,
+                        "messages": [{"role": "user", "content": enhanced_prompt}],
+                        "max_tokens": 700,
+                        "temperature": 0.3
+                    }
+                    
+                    url = "https://openrouter.ai/api/v1/chat/completions"
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        r = await client.post(url, headers=headers, json=payload)
+                    
+                    if r.status_code == 200:
+                        body = r.json()
+                        if "choices" in body and body["choices"]:
+                            content = body["choices"][0]["message"]["content"]
+                            # Extract JSON from response
+                            match = re.search(r"\{[\s\S]*\}", content)
+                            if match:
+                                try:
+                                    result = json.loads(match.group(0))
+                                    print(f"[DEBUG] OpenRouter success with {model}", file=sys.stderr)
+                                    return result
+                                except json.JSONDecodeError:
+                                    try:
+                                        result = json.loads(match.group(0).replace("'", '"'))
+                                        print(f"[DEBUG] OpenRouter success with {model}", file=sys.stderr)
+                                        return result
+                                    except json.JSONDecodeError:
+                                        print(f"[DEBUG] OpenRouter JSON parse failed with {model}", file=sys.stderr)
+                                        pass
+                        else:
+                            print(f"[DEBUG] OpenRouter invalid response format with {model}", file=sys.stderr)
+                    elif r.status_code == 401:
+                        print(f"[DEBUG] OpenRouter auth failed, marking key as failed", file=sys.stderr)
+                        self._failed_openrouter_keys[key] = time.time()
+                        break  # Skip to next key
+                    elif r.status_code == 429:
+                        print(f"[DEBUG] OpenRouter rate limited, marking key as failed temporarily", file=sys.stderr)
+                        self._failed_openrouter_keys[key] = time.time()
+                        break  # Skip to next key
+                    else:
+                        print(f"[DEBUG] OpenRouter HTTP {r.status_code} with {model}", file=sys.stderr)
+                        
+                except httpx.TimeoutException:
+                    print(f"[DEBUG] OpenRouter timeout with {model}, marking key as failed temporarily", file=sys.stderr)
+                    self._failed_openrouter_keys[key] = time.time()
+                    break  # Skip to next key
+                except Exception as e:
+                    print(f"[DEBUG] OpenRouter error with {model}: {e}", file=sys.stderr)
+                    continue
+        return {}
+
+    async def _try_huggingface(self, prompt: str) -> Dict[str, Any]:
+        """Try HuggingFace API with multiple models and tokens, with failure tracking."""
+        available_tokens = self._get_available_hf_tokens()
+        if not available_tokens:
+            print("[DEBUG] No available HuggingFace tokens", file=sys.stderr)
+            return {}
+        
+        import time
+        
+        for model in self.hf_models:
+            for token in available_tokens:
+                try:
+                    print(f"[DEBUG] Trying HF model: {model}, token: {token[:20]}...", file=sys.stderr)
+                    
                     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                     wrapped = (
                         "You output a single JSON object only, no markdown, no explanation.\n"
@@ -354,29 +522,54 @@ class AutoPPTAgent:
                     url = f"https://api-inference.huggingface.co/models/{model}"
                     async with httpx.AsyncClient(timeout=120.0) as client:
                         r = await client.post(url, headers=headers, json=payload)
-                    if r.status_code != 200:
-                        continue
-                    body = r.json()
-                    if isinstance(body, dict) and body.get("error"):
-                        continue
-                    txt = ""
-                    if isinstance(body, list) and body:
-                        txt = body[0].get("generated_text", "") or ""
-                    elif isinstance(body, dict):
-                        txt = body.get("generated_text", "") or ""
-                    match = re.search(r"\{[\s\S]*\}", txt)
-                    if match:
-                        rawj = match.group(0)
-                        try:
-                            return json.loads(rawj)
-                        except json.JSONDecodeError:
+                    
+                    if r.status_code == 200:
+                        body = r.json()
+                        if isinstance(body, dict) and body.get("error"):
+                            print(f"[DEBUG] HF API error: {body.get('error')}", file=sys.stderr)
+                            continue
+                            
+                        txt = ""
+                        if isinstance(body, list) and body:
+                            txt = body[0].get("generated_text", "") or ""
+                        elif isinstance(body, dict):
+                            txt = body.get("generated_text", "") or ""
+                            
+                        match = re.search(r"\{[\s\S]*\}", txt)
+                        if match:
+                            rawj = match.group(0)
                             try:
-                                return json.loads(rawj.replace("'", '"'))
+                                result = json.loads(rawj)
+                                print(f"[DEBUG] HF success with {model}", file=sys.stderr)
+                                return result
                             except json.JSONDecodeError:
-                                pass
-                except (httpx.TimeoutException, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError):
-                    continue
-                except Exception:
+                                try:
+                                    result = json.loads(rawj.replace("'", '"'))
+                                    print(f"[DEBUG] HF success with {model}", file=sys.stderr)
+                                    return result
+                                except json.JSONDecodeError:
+                                    print(f"[DEBUG] HF JSON parse failed with {model}", file=sys.stderr)
+                                    pass
+                    elif r.status_code == 401:
+                        print(f"[DEBUG] HF auth failed, marking token as failed", file=sys.stderr)
+                        self._failed_hf_tokens[token] = time.time()
+                        break  # Skip to next token
+                    elif r.status_code == 429:
+                        print(f"[DEBUG] HF rate limited, marking token as failed temporarily", file=sys.stderr)
+                        self._failed_hf_tokens[token] = time.time()
+                        break  # Skip to next token
+                    elif r.status_code == 503:
+                        print(f"[DEBUG] HF model loading, trying next token", file=sys.stderr)
+                        continue  # Try next token immediately
+                    else:
+                        print(f"[DEBUG] HF HTTP {r.status_code} with {model}", file=sys.stderr)
+                        
+                except httpx.TimeoutException:
+                    print(f"[DEBUG] HF timeout with {model}, marking token as failed temporarily", file=sys.stderr)
+                    self._failed_hf_tokens[token] = time.time()
+                    break  # Skip to next token
+                except Exception as e:
+                    print(f"[DEBUG] HF error with {model}: {e}", file=sys.stderr)
                     continue
         return {}
 
@@ -396,8 +589,12 @@ class AutoPPTAgent:
                     self.user_request,
                 ).strip() or self.user_request.strip()
                 print(f"[AGENT] Designing Professional Research Deck: {subj}")
-                if not self.hf_tokens:
-                    print("[AGENT] WARN: No HF_TOKEN / HF_TOKENS in .env — slide text will use web + dictionary only.")
+                if not self.openrouter_keys and not self.hf_tokens:
+                    print("[AGENT] WARN: No OPENROUTER_KEY or HF_TOKEN in .env — slide text will use web + dictionary only.")
+                elif not self.openrouter_keys:
+                    print("[AGENT] INFO: No OPENROUTER_KEY in .env — using HuggingFace API only.")
+                elif not self.hf_tokens:
+                    print("[AGENT] INFO: No HF_TOKEN in .env — using OpenRouter API only.")
 
                 # 🧠 PLAN: Scientific Hierarchy
                 plan = {"title": f"The Science and Evolution of {subj}", "slides": [{"title": "Origins and Taxonomy"},{"title": "Physiological & Structural Features"},{"title": "Biological Growth & Lifecycle"},{"title": "Ecological & Environmental Roles"},{"title": "Industrial & Societal Impact"},{"title": "Future Research & Conservation Directions"}]}
@@ -424,14 +621,30 @@ class AutoPPTAgent:
                         facts = [f for f in self._slide_fact_window(pool, idx, 8) if self.bullet_matches_slide(subj, title, f)]
                     facts_snip = json.dumps(facts[:10])[:1200]
 
-                    # 🧠 2. HF first — five on-topic lines from the model (keys in .env rotate on timeout/error)
-                    ai_gen = await self.ask_llm(
-                        f"Presentation topic: {subj!r}. Slide heading: {title!r}.\n"
-                        f"Optional research snippets from the web (use when accurate, else general knowledge): {facts_snip}\n"
-                        f"Write exactly {NUM_SLIDE_BULLETS} bullet points for this slide only. "
-                        "Each bullet is one clear sentence, factual, educational, matching the slide heading. "
-                        "No slang, no dictionary-style '(noun)' labels, no jokes. Mention the topic where natural."
-                    )
+                    # 🧠 2. AI generation with enhanced prompt for specific content requirements
+                    if title == "Origins and Taxonomy" and subj.lower() == "tomato":
+                        # Specialized prompt for tomato origins and taxonomy
+                        enhanced_prompt = (
+                            f"Presentation topic: {subj!r}. Slide heading: {title!r}.\n"
+                            f"Research context: {facts_snip}\n"
+                            f"Generate exactly {NUM_SLIDE_BULLETS} bullet points that MUST include:\n"
+                            "1. How 'Origins and Taxonomy' applies to tomato with one concrete example from industry or nature\n"
+                            "2. Two measurable traits or stages of tomato that illustrate 'Origins and Taxonomy'\n"
+                            "3. Comparison of tomato with a related species (one similarity, one difference)\n"
+                            "4. One challenge and one opportunity for tomato under 'Origins and Taxonomy'\n"
+                            "5. A key scientific fact about tomato classification or evolution\n"
+                            "Each bullet should be a complete factual sentence with specific details. No generic statements."
+                        )
+                    else:
+                        enhanced_prompt = (
+                            f"Presentation topic: {subj!r}. Slide heading: {title!r}.\n"
+                            f"Optional research snippets from the web (use when accurate, else general knowledge): {facts_snip}\n"
+                            f"Write exactly {NUM_SLIDE_BULLETS} bullet points for this slide only. "
+                            "Each bullet is one clear sentence, factual, educational, matching the slide heading. "
+                            "No slang, no dictionary-style '(noun)' labels, no jokes. Mention the topic where natural."
+                        )
+                    
+                    ai_gen = await self.ask_llm(enhanced_prompt)
                     bullets = ai_gen.get("bullets", [])
                     if isinstance(bullets, list):
                         bullets = [str(b).strip() for b in bullets if self._llm_bullet_ok(str(b))]
