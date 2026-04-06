@@ -1,6 +1,4 @@
----
-
-## 🎨 Frontend Architecture & Lifecycle (The Dashboard)
+# 🎨 Frontend Architecture & Lifecycle (The Dashboard)
 
 ### 🌉 Design Philosophy: Glassmorphism & Midnight Navy
 - **Why**: Standard White/Blue web apps look 2-star. Using a **Midnight Navy and Emerald Green** palette with **Glassmorphism (Background Blurring)** creates a 'Command Center' feel that immediately signals technical sophistication to the evaluator.
