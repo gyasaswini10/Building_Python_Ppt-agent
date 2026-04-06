@@ -76,10 +76,10 @@ def create_pptx(title: str = "Presentation") -> dict:
     return {"ok": True, "session_id": session_id}
 
 @mcp.tool()
-def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
+def add_slide(session_id: str, slide_title: str, bullets: List[str], image_url: str = None) -> dict:
     """
-    Primary tool for building out the deck complexity.
-    Why: This iteratively builds the research narrative from top to bottom.
+    Primary tool for building out the deck complexity with optional Visual Intelligence.
+    Why: Images increase engagement and provide immediate technical context.
     """
     if session_id not in _SESSIONS:
         return {"ok": False, "error": "Invalid session_id"}
@@ -141,6 +141,25 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str]) -> dict:
             p.text = raw
             p.level = 0 # Standardize on single-level bullets for professional scientific look
             _style_body_run(p)
+            
+    # --- STAGE: VISUAL INTELLIGENCE (IMAGE) ---
+    if image_url:
+        try:
+            import requests
+            from io import BytesIO
+            resp = requests.get(image_url, timeout=10)
+            if resp.status_code == 200:
+                img_data = BytesIO(resp.content)
+                # Position image on the RIGHT side for a professional split-layout
+                left = int(pres.slide_width * 0.65)
+                top = Inches(1.8)
+                width = int(pres.slide_width * 0.3)
+                slide.shapes.add_picture(img_data, left, top, width=width)
+                print(f"🖼️ MCP: Image inserted successfully for {slide_title}")
+                # Shrink body width to make room for image
+                body.width = int(pres.slide_width * 0.55)
+        except Exception as e:
+            print(f"⚠️ MCP Visual Error: {e}")
     else:
         # Robustness logic: provide a placeholder if no data is found so the slide isn't empty
         tf.text = "Research for this specific slide is pending additional sensor data."

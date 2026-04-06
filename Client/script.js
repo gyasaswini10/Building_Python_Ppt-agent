@@ -5,6 +5,7 @@ class PresentationGenerator {
     constructor() {
         this.currentSession = null;
         this.currentProgress = 0;
+        this.isGenerating = false;
         this.init();
     }
 
@@ -107,6 +108,8 @@ class PresentationGenerator {
     }
 
     async handleGeneration() {
+        if (this.isGenerating) return;
+        
         const topic = document.getElementById('presentation-topic').value.trim();
         const title = document.getElementById('presentation-title').value.trim();
         const slideCount = parseInt(document.getElementById('slide-count').value);
@@ -116,13 +119,17 @@ class PresentationGenerator {
             return;
         }
 
-        const presentationTitle = title || `Professional Presentation on ${topic}`;
-
-        await this.generatePresentation({
-            topic: topic,
-            title: presentationTitle,
-            slideCount: slideCount
-        });
+        try {
+            this.isGenerating = true;
+            const presentationTitle = title || `Professional Presentation on ${topic}`;
+            await this.generatePresentation({
+                topic: topic,
+                title: presentationTitle,
+                slideCount: slideCount
+            });
+        } finally {
+            this.isGenerating = false;
+        }
     }
 
     async handleQuickGeneration() {
@@ -347,7 +354,8 @@ class PresentationGenerator {
                     body: JSON.stringify({
                         session_id: this.currentSession,
                         slide_title: slideTitle,
-                        bullets: bullets
+                        bullets: bullets,
+                        image_url: researchData.image_url || null
                     })
                 });
 

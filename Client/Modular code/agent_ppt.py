@@ -271,6 +271,48 @@ class AutonomousPresenter:
 
         return {"bullets": []}
 
+    async def get_visual_asset(self, slide_title: str) -> str:
+        """
+        Orchestrates visual sourcing from Wikimedia Commons (Educational) and Unsplash (Aesthetic).
+        Why: Wikimedia provides the most accurate scientific diagrams/photos for academic work.
+        """
+        try:
+            # Step 1: Brainstorm scientific keywords
+            prompt = f"Topic: {self.topic}. Slide: {slide_title}. Return ONLY 2-3 scientific keywords for a scientific photo. No text, only keywords."
+            res = await self.ask_llm(prompt)
+            keywords = f"scientific {self.topic}"
+            if res.get("bullets"):
+                keywords = res["bullets"][0].replace(".", "").lower()
+            
+            # --- STRATEGY 1: WIKIMEDIA COMMONS (Accurate & Educational) ---
+            wiki_url = await self._get_wikimedia_image(keywords)
+            if wiki_url: return wiki_url
+            
+            # --- STRATEGY 2: UNSPLASH (Modern & High-Resolution) ---
+            print(f"🖼️ Falling back to Unsplash for: {keywords}")
+            return f"https://source.unsplash.com/featured/800x600?{keywords.replace(' ', ',')},scientific"
+            
+        except Exception as e:
+            print(f"⚠️ Visual Asset Error: {e}")
+            return f"https://source.unsplash.com/featured/800x600?scientific,{self.topic.replace(' ', ',')}"
+
+    async def _get_wikimedia_image(self, keywords: str) -> Optional[str]:
+        """Fetches the primary educational image from Wikimedia Commons API."""
+        try:
+            from urllib.parse import quote
+            url = f"https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=pageimages&generator=search&piprop=thumbnail&pithumbsize=800&gsrsearch={quote(keywords)}&gsrlimit=1"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    pages = resp.json().get("query", {}).get("pages", {})
+                    for p_id in pages:
+                        thumbnail = pages[p_id].get("thumbnail", {}).get("source")
+                        if thumbnail: 
+                            print(f"✅ Wikimedia Success: Found image for {keywords}")
+                            return thumbnail
+        except Exception: pass
+        return None
+
     async def execute(self):
         """
         The Main Agentic Loop Orchestrator.

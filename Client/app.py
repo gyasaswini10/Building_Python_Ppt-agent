@@ -92,8 +92,17 @@ async def research_topic_robust(query: str, slide_title: str = "") -> dict:
             search_query = f"{query} - {slide_title}" if slide_title else query
             res = await brain.ask_llm(search_query)
             
+            # Step 2: Visual Intelligence (NEW)
+            # Fetch a high-quality scientific image for the slide
+            img_url = await brain.get_visual_asset(slide_title or query)
+            
             if res.get("bullets") and len(res["bullets"]) >= 1:
-                return {"ok": True, "points": res["bullets"][:6], "source": "LLM-Orchestrator"}
+                return {
+                    "ok": True, 
+                    "points": res["bullets"][:6], 
+                    "image_url": img_url,
+                    "source": "LLM-Orchestrator"
+                }
             else:
                 print(f"⚠️ AI Pipeline: No points returned for '{slide_title}'. Trying Wikipedia fallback...")
         except Exception as e:
@@ -343,14 +352,15 @@ def add_slide():
         session_id = data.get('session_id')
         slide_title = data.get('slide_title', '')
         bullets = data.get('bullets', [])
+        image_url = data.get('image_url')
         
         if not session_id or not slide_title:
             return jsonify({"ok": False, "error": "session_id and slide_title are required"})
         
         # Try modular logic first
         if MODULAR_CODE_AVAILABLE and hasattr(ppt_module, 'add_slide'):
-            print(f"🚀 Attempting MODULAR add_slide for session {session_id}...")
-            result = ppt_module.add_slide(session_id, slide_title, bullets)
+            print(f"🚀 Attempting MODULAR add_slide with Visuals for session {session_id}...")
+            result = ppt_module.add_slide(session_id, slide_title, bullets, image_url=image_url)
             if result.get("ok"): 
                 print(f"✅ Modular add_slide SUCCESS for {slide_title}")
                 return jsonify(result)
