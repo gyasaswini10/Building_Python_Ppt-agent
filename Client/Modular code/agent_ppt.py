@@ -187,13 +187,12 @@ class AutonomousPresenter:
         Orchestration logic for Model Fallback and Redundancy.
         Tries ALL OpenRouter keys in rotation, then HuggingFace.
         """
-        # Priority 2026 Free Models (Top-Ranked Reasoning & Speed)
+        # Priority Universal Model (prevents 404/400 errors)
         models = [
-            "qwen/qwen-3.6-plus:free", 
+            "openrouter/auto", 
             "stepfun/step-3.5-flash:free", 
             "nvidia/nemotron-3-super-120b:free",
-            "z-ai/glm-4.5-air:free",
-            "openrouter/auto"
+            "z-ai/glm-4.5-air:free"
         ]
         
         # --- STAGE 1: OPENROUTER ROTATION ---

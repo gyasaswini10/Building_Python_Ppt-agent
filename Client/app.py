@@ -9,6 +9,7 @@ import sys
 import json
 import asyncio
 import uuid
+import time
 import httpx
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
@@ -52,10 +53,6 @@ except ImportError:
     PPTX_AVAILABLE = False
     print("⚠️ python-pptx not available - Running in demo mode")
 
-# Initializing global state for MCP communication (Session IDs are ephemeral)
-active_sessions = {}
-# Thread-safe lock for session modifications
-session_lock = threading.Lock()
 # Correct modern import for the AI Brain and Modular Servers
 try:
     import agent_ppt
@@ -66,9 +63,16 @@ try:
     importlib.reload(agent_ppt)
     MODULAR_CODE_AVAILABLE = True
     print("✅ Localized AI Brain and Modular Servers RELOADED successfully")
+    
+    # NEW: Sync the live session storage for 100% accurate Saving and Deletion
+    active_sessions = ppt_module._SESSIONS
 except ImportError as e:
     print(f"⚠️ Modular code components not found in path: {e}")
     MODULAR_CODE_AVAILABLE = False
+    active_sessions = {}
+
+# Thread-safe lock for session modifications
+session_lock = threading.Lock()
 
 async def research_topic_robust(query: str, slide_title: str = "") -> dict:
     """Research function with localized AI brain for thread safety"""
@@ -512,39 +516,26 @@ def save_presentation():
         if not session_id:
             return jsonify({"ok": False, "error": "session_id is required"})
             
-        print(f"💾 API: Saving session {session_id} to {output_path}")
+        # NEW: Optimized Saving Logic for Live Updates
+        # Why: This ensures that adding or deleting a slide updates the SAME file on disk.
+        # We only add a timestamp if it's a 'Final Save' without an existing path.
+        if not output_path.endswith('.pptx'): output_path += '.pptx'
         
-        # NEW: Automatic Versioning Logic
-        # Check if folder exists, then check for filename conflicts
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-            os.makedirs(app.config['UPLOAD_FOLDER'])
-            
+        # Check if we should reuse the existing file in the upload folder
         full_output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_path)
         
-        if os.path.exists(full_output_path):
-            print(f"⚠️ Conflict! {output_path} exists. Indexing version...")
-            base, ext = os.path.splitext(output_path)
-            counter = 1
-            while os.path.exists(full_output_path):
-                counter += 1
-                new_name = f"{base}_v{counter}{ext}"
-                full_output_path = os.path.join(app.config['UPLOAD_FOLDER'], new_name)
-            output_path = os.path.basename(full_output_path)
-            print(f"✅ Versioning: New destination set to {output_path}")
-
         # Try modular save first if available
         if MODULAR_CODE_AVAILABLE and hasattr(ppt_module, 'save_presentation'):
-            print(f"🚀 Using MODULAR save logic at {full_output_path}...")
+            print(f"🚀 Updating LIVE presentation at {full_output_path}...")
             result = ppt_module.save_presentation(session_id, full_output_path)
         else:
-            print(f"🔄 Using INTERNAL save logic at {full_output_path}...")
-            # Internal save might ignore our full_path, so we use simpler call if needed
+            print(f"🔄 Updating INTERNAL presentation at {full_output_path}...")
             result = save_presentation_simple(session_id, output_path)
             
         if result.get("ok"):
-            print(f"✅ Presentation saved to: {result.get('output_path')}")
+            print(f"✅ Presentation updated on disk: {output_path}")
         else:
-            print(f"❌ Save FAILED: {result.get('error')}")
+            print(f"❌ Update FAILED: {result.get('error')}")
             
         return jsonify(result)
     except Exception as e:

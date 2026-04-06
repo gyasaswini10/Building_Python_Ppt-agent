@@ -211,10 +211,19 @@ def save_presentation(session_id: str, output_path: str) -> dict:
         # Normalize pathing to ensure the file saves correctly across Windows/Linux/MacOS environments
         abs_out = os.path.abspath(output_path)
         os.makedirs(os.path.dirname(abs_out) or ".", exist_ok=True) # Defensive check: Create parent folder if missing
+        
+        # Save Attempt
         _SESSIONS[session_id].save(abs_out)
+        print(f"✅ MCP: Persistence SUCCESS at {abs_out}")
         return {"ok": True, "output_path": abs_out}
     except Exception as e:
-        return {"ok": False, "error": f"IO Error during save: {str(e)}"}
+        err_msg = str(e)
+        if "Permission denied" in err_msg or "Errno 13" in err_msg:
+            err_msg = "[ACCESS DENIED] Your local PPT file is OPEN. Please CLOSE PowerPoint and click 'Save' again."
+            print(f"❌ MCP: Save LOCKED - {err_msg}")
+        else:
+            print(f"❌ MCP: Save FAILED - {err_msg}")
+        return {"ok": False, "error": err_msg}
 
 if __name__ == "__main__":
     # Final Orchestration: Run the MCP bridge using standard input/output for local execution (Stdio)

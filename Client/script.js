@@ -617,6 +617,7 @@ class PresentationGenerator {
             if (result.ok) {
                 this.showNotification(`Successfully added slide: ${title}`, 'success');
                 this.refreshSlides();
+                this.autoSaveLocal(); // NEW: Trigger background save to update local file
 
                 // Update stats
                 const statsElement = document.getElementById('result-stats');
@@ -705,6 +706,7 @@ class PresentationGenerator {
             if (data.ok) {
                 this.showNotification('Slide deleted successfully', 'success');
                 this.refreshSlides();
+                this.autoSaveLocal(); // NEW: Trigger background save to update local file
 
                 // Update stats
                 const statsElement = document.getElementById('result-stats');
@@ -883,6 +885,34 @@ class PresentationGenerator {
                 }
             }, 300);
         }, 5000);
+    }
+
+    async autoSaveLocal() {
+        if (!this.currentSession) return;
+        try {
+            const topicBase = document.getElementById('presentation-topic').value || "Presentation";
+            const filename = `${topicBase.replace(/[^a-zA-Z0-9]/g, '_')}.pptx`;
+            
+            const response = await fetch('/api/save-presentation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: this.currentSession,
+                    output_path: filename
+                })
+            });
+            const data = await response.json();
+            if (data.ok) {
+                const time = new Date().toLocaleTimeString();
+                this.showNotification(`Disk Updated: ${time}`, 'info');
+                // Pulse the download button to show change
+                const dlBtn = document.getElementById('downloadBtn');
+                if (dlBtn) {
+                    dlBtn.style.boxShadow = "0 0 15px #10b981";
+                    setTimeout(() => dlBtn.style.boxShadow = "none", 1000);
+                }
+            }
+        } catch (e) { console.error("AutoSave Error:", e); }
     }
 
     showLoading(elementId, text) {
