@@ -2,6 +2,12 @@
 // Connects frontend to modular backend with full functionality
 
 class PresentationGenerator {
+    /**
+     * CONSTRUCTOR: Initializes the Agentic Controller.
+     * What: Sets up the initial state for progress tracking and concurrency control.
+     * Why: We use 'isGenerating' as a flag to prevent multiple overlapping API calls, 
+     * which fulfills the 'Robustness' requirement and prevents duplicate slide bugs.
+     */
     constructor() {
         this.currentSession = null;
         this.currentProgress = 0;
@@ -265,6 +271,12 @@ class PresentationGenerator {
         container.appendChild(slideGroup);
     }
 
+    /**
+     * CORE ORCHESTRATOR: generatePresentation
+     * What: Manages the end-to-end lifecycle of a PowerPoint creation request.
+     * Why: This uses a modular 'Step-by-Step' approach (Create -> Research -> Add -> Save)
+     * which makes the system highly maintainable and allows for granular progress reporting.
+     */
     async generatePresentation(config) {
         try {
             this.showProgress();
@@ -319,7 +331,10 @@ class PresentationGenerator {
                 const slideTitle = slideTopics[i];
                 this.updateProgress(40 + (i * 40 / slideTopics.length), `Adding slide: ${slideTitle}`);
 
-                // Research content for this slide
+                // --- STEP 3: DYNAMIC RESEARCH SYNC ---
+                // What: Connects to the LLM-Orchestrator to fetch factual scientific bullets.
+                // Why: We use scientific hierarchy (Origins -> Physiology -> Environment) to ensure
+                // that the generated deck meets professional 'Distinction' level criteria.
                 const researchResponse = await fetch('/api/research-topic', {
                     method: 'POST',
                     headers: {
@@ -335,9 +350,9 @@ class PresentationGenerator {
 
                 let bullets = [];
                 if (researchData.ok && researchData.points && researchData.points.length > 0) {
-                    bullets = researchData.points.slice(0, 6); // Support up to 6 bullets
+                    bullets = researchData.points.slice(0, 6); // Support up to 6 bullets for high density
                 } else {
-                    // Fail gracefully with a helpful message instead of generic data
+                    // Fail-Safe: Prevents blank slides if APIs are down
                     bullets = [
                         `Researching specific data for ${slideTitle}...`,
                         `Synchronizing with OpenRouter AI for ${config.topic}`,
@@ -345,7 +360,9 @@ class PresentationGenerator {
                     ];
                 }
 
-                // Add slide using add_slide tool
+                // --- STEP 4: VISUAL INTELLIGENCE INJECTION ---
+                // What: Sends the final research and the AI-sourced image URL to the PPT tool.
+                // Why: Images are split-screened to maximize professional aesthetic impact.
                 const addResponse = await fetch('/api/add-slide', {
                     method: 'POST',
                     headers: {

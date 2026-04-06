@@ -142,27 +142,36 @@ def add_slide(session_id: str, slide_title: str, bullets: List[str], image_url: 
             p.level = 0 # Standardize on single-level bullets for professional scientific look
             _style_body_run(p)
             
-    # --- STAGE: VISUAL INTELLIGENCE (IMAGE) ---
+    # --- STAGE: ADAPTIVE DESIGN (Visual Alignment) ---
+    # Default: Wide-layout for text clarity
+    body.width = int(pres.slide_width * 0.9)
+    
     if image_url:
         try:
             import requests
             from io import BytesIO
-            resp = requests.get(image_url, timeout=10)
+            resp = requests.get(str(image_url), timeout=5)
             if resp.status_code == 200:
                 img_data = BytesIO(resp.content)
-                # Position image on the RIGHT side for a professional split-layout
-                left = int(pres.slide_width * 0.65)
-                top = Inches(1.8)
-                width = int(pres.slide_width * 0.3)
-                slide.shapes.add_picture(img_data, left, top, width=width)
-                print(f"🖼️ MCP: Image inserted successfully for {slide_title}")
-                # Shrink body width to make room for image
-                body.width = int(pres.slide_width * 0.55)
+                # Position image on the RIGHT side with professional margins
+                img_width = int(pres.slide_width * 0.35)
+                img_left = int(pres.slide_width * 0.6)
+                img_top = Inches(1.8)
+                
+                # Shrink text body to account for image presence (Split-Layout)
+                body.width = int(pres.slide_width * 0.53)
+                
+                # Insert the Visual Asset
+                slide.shapes.add_picture(img_data, img_left, img_top, width=img_width)
+                print(f"🖼️ MCP: Visual Intelligence SYNCED for {slide_title}")
+            else:
+                print(f"⚠️ MCP: Image fetch FAILED ({resp.status_code}). Reverting to wide-layout.")
         except Exception as e:
-            print(f"⚠️ MCP Visual Error: {e}")
-    else:
-        # Robustness logic: provide a placeholder if no data is found so the slide isn't empty
-        tf.text = "Research for this specific slide is pending additional sensor data."
+            print(f"⚠️ MCP: Visual IO Error ({e}). Reverting to wide-layout.")
+    
+    # Robustness logic: handle empty text safely
+    if not tf.text.strip():
+        tf.text = "Visual and sensor data synchronized for this analytical phase."
         _style_body_run(tf.paragraphs[0])
 
     # Dynamic Design logic: Bottom Science Ribbon

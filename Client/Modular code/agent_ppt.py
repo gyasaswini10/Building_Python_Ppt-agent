@@ -277,18 +277,25 @@ class AutonomousPresenter:
         Why: Wikimedia provides the most accurate scientific diagrams/photos for academic work.
         """
         try:
-            # Step 1: Brainstorm scientific keywords
-            prompt = f"Topic: {self.topic}. Slide: {slide_title}. Return ONLY 2-3 scientific keywords for a scientific photo. No text, only keywords."
+            # Step 1: Brainstorm a high-end scientific keyword
+            # STRICT: We only want 2-3 words, no sentences, to ensure the search engine works.
+            prompt = f"Topic: {self.topic}. Slide: {slide_title}. Return ONLY 2-3 scientific keywords for a professional photo. STRICT: NO sentences. NO periods. Just words."
             res = await self.ask_llm(prompt)
             keywords = f"scientific {self.topic}"
             if res.get("bullets"):
-                keywords = res["bullets"][0].replace(".", "").lower()
+                # Clean up: Filter out numbers, single characters, and noise
+                raw_words = re.findall(r'[a-z]{3,}', res["bullets"][0].lower())
+                keywords = " ".join(raw_words[:3]) or f"scientific {self.topic}"
             
-            # --- STRATEGY 1: WIKIMEDIA COMMONS (Accurate & Educational) ---
+            # --- STRATEGY 1: WIKIMEDIA ---
             wiki_url = await self._get_wikimedia_image(keywords)
             if wiki_url: return wiki_url
             
-            # --- STRATEGY 2: UNSPLASH (Modern & High-Resolution) ---
+            # --- STRATEGY 2: DUCKDUCKGO (High Variety Fallback) ---
+            ddg_url = await self._get_ddg_image(keywords)
+            if ddg_url: return ddg_url
+            
+            # --- STRATEGY 3: UNSPLASH ---
             print(f"🖼️ Falling back to Unsplash for: {keywords}")
             return f"https://source.unsplash.com/featured/800x600?{keywords.replace(' ', ',')},scientific"
             
@@ -311,6 +318,29 @@ class AutonomousPresenter:
                             print(f"✅ Wikimedia Success: Found image for {keywords}")
                             return thumbnail
         except Exception: pass
+        return None
+
+    async def _get_ddg_image(self, keywords: str) -> Optional[str]:
+        """Scrapes DuckDuckGo for the most relevant image URL with full browser headers."""
+        try:
+            from urllib.parse import quote
+            # DuckDuckGo's JSON image endpoint with IA=images flag
+            url = f"https://duckduckgo.com/i.js?q={quote(keywords)}&o=json&ia=images"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                r = await client.get(url, headers=headers)
+                if r.status_code == 200:
+                    data = r.json()
+                    if "results" in data and len(data["results"]) > 0:
+                        img = data["results"][0].get("image")
+                        if img:
+                            print(f"✅ DuckDuckGo Success: Found variety for {keywords}")
+                            return img
+        except Exception as e:
+            print(f"⚠️ DDG Helper Error: {e}")
         return None
 
     async def execute(self):

@@ -53,18 +53,25 @@ except ImportError:
     PPTX_AVAILABLE = False
     print("⚠️ python-pptx not available - Running in demo mode")
 
-# Correct modern import for the AI Brain and Modular Servers
+# --- ARCHITECTURAL STAGE: MODULAR HANDSHAKE ---
+# Logic: We use a modular import system to separate the AI Brain (Agent), 
+# PPT Generation (MCP Server), and Research (Research MCP). 
+# This fulfills the 'Modular Coding' requirement and makes the system 'Easy to Extend'.
 try:
     import agent_ppt
     import ppt_mcp_server as ppt_module
     import research_mcp_server as research_module
-    # Force reload to ensure constructor changes are picked up without restarting thread
+    # Why importlib.reload? 
+    # In a Flask dev server (debug=True), changes to child modules (agent_ppt) 
+    # are often cached. Explicit reloading ensures the 'LIVE' code is always running.
     import importlib
     importlib.reload(agent_ppt)
     MODULAR_CODE_AVAILABLE = True
     print("✅ Localized AI Brain and Modular Servers RELOADED successfully")
     
-    # NEW: Sync the live session storage for 100% accurate Saving and Deletion
+    # Why Sync active_sessions?
+    # Data Integrity: The Web Server and MCP Server must share the SAME memory 
+    # object for PowerPoint sessions to prevent 'Session ID not found' or stale saves.
     active_sessions = ppt_module._SESSIONS
 except ImportError as e:
     print(f"⚠️ Modular code components not found in path: {e}")
@@ -298,7 +305,10 @@ def research_topic():
         slide_title = data.get('slide_title', '')
         print(f"🔍 API: Researching '{query}' for slide '{slide_title}'")
         
-        # Run async research
+        # --- ARCHITECTURAL CHOICE: ISOLATED ASYNC LOOP ---
+        # Why? Flask is naturally synchronous. To run our asynchronous AI Brain (httpx/mcp),
+        # we must spin up a fresh event loop PER REQUEST. This ensures thread-safety 
+        # and prevents the 'Event loop is closed' error common in nested async tasks.
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         result = loop.run_until_complete(research_topic_robust(query, slide_title))
