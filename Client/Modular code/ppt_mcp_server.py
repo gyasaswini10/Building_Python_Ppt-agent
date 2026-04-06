@@ -166,13 +166,17 @@ def delete_slide(session_id: str, slide_index: int) -> dict:
     
     pres = _SESSIONS[session_id]
     try:
-        # Standard logic to delete a slide using the python-pptx API internal slide list manipulation.
-        xml_slides = pres.slides._sldIdLst
-        slides = list(xml_slides)
-        xml_slides.remove(slides[slide_index])
-        return {"ok": True, "message": f"Slide {slide_index} removed successfully."}
-    except IndexError:
-        return {"ok": False, "error": f"Slide index {slide_index} is out of bounds."}
+        # Standard robust logic for slide deletion in python-pptx
+        sldIdLst = pres.slides._sldIdLst
+        slides = list(sldIdLst)
+        if 0 <= slide_index < len(slides):
+            sldIdLst.remove(slides[slide_index])
+            print(f"🗑️ MCP: Slide {slide_index} removed from session {session_id}")
+            return {"ok": True, "message": f"Slide {slide_index} removed successfully.", "slides_total": len(pres.slides)}
+        else:
+            return {"ok": False, "error": f"Slide index {slide_index} is out of bounds (0-{len(slides)-1})"}
+    except Exception as e:
+        return {"ok": False, "error": f"Deletion Error: {str(e)}"}
 
 @mcp.tool()
 def get_ppt_info(session_id: str) -> dict:
