@@ -187,7 +187,14 @@ class AutonomousPresenter:
         Orchestration logic for Model Fallback and Redundancy.
         Tries ALL OpenRouter keys in rotation, then HuggingFace.
         """
-        models = ["meta-llama/llama-3-8b-instruct:free", "google/gemma-7b-it:free", "mistralai/mistral-7b-instruct:free"]
+        # Priority 2026 Free Models (Top-Ranked Reasoning & Speed)
+        models = [
+            "qwen/qwen-3.6-plus:free", 
+            "stepfun/step-3.5-flash:free", 
+            "nvidia/nemotron-3-super-120b:free",
+            "z-ai/glm-4.5-air:free",
+            "openrouter/auto"
+        ]
         
         # --- STAGE 1: OPENROUTER ROTATION ---
         if self.openrouter_keys:
@@ -199,29 +206,41 @@ class AutonomousPresenter:
                 for model_id in models:
                     try:
                         url = "https://openrouter.ai/api/v1/chat/completions"
-                        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+                        headers = {
+                            "Authorization": f"Bearer {key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "http://localhost:5000",
+                            "X-Title": "AutoPPT-Researcher"
+                        }
                         payload = {
                             "model": model_id,
                             "messages": [
-                                {"role": "system", "content": f"You are a Senior Technical Researcher for '{self.topic}'. Task: Detail EXACTLY 6 unique, factual, and extremely specific technical insights about the headline '{prompt}'. \nSTRICT: Start every point with a data point or scientific mechanism. NO generic phrases like 'Key information', 'Important aspects', or 'Significant findings'. Output ONLY 6 unique sentences without markers. 6 sentences total."},
-                                {"role": "user", "content": f"Provide 6 highly specific, non-generic scientific research sentences for: '{prompt}' about '{self.topic}'."}
+                                {"role": "system", "content": f"You are a Scientific Analyst for '{self.topic}'. Task: List EXACTLY 6 unique, factual, and data-dense sentences about '{prompt}'. \nSTRICT: NO generic definitions. NO preamble. Start with numbers or facts. 6 points total."},
+                                {"role": "user", "content": f"Provide 6 professional research sentences for: '{prompt}' regarding '{self.topic}'."}
                             ],
                             "temperature": 0.8
                         }
                         async with httpx.AsyncClient(timeout=40.0) as client:
                             resp = await client.post(url, headers=headers, json=payload)
+                            if resp.status_code != 200:
+                                print(f"❌ OpenRouter Error [{resp.status_code}] | Key: {key_snippet} | Resp: {resp.text[:100]}")
+                            
                             if resp.status_code == 200:
                                 res_json = resp.json()
                                 if 'choices' in res_json:
                                     text = res_json['choices'][0]['message']['content']
-                                    print(f"🤖 LLM ({model_id[:10]}) | Key: {key_snippet} | Start: {text[:40]}...")
-                                    
-                                    # Split by newlines or sentences to extract 6 clean lines
-                                    raw = [b.strip() for b in text.split('\n') if len(b.strip()) > 20]
-                                    if len(raw) < 3: raw = [s.strip() + '.' for s in text.split('. ') if len(s.strip()) > 20]
+                                    print(f"🤖 LLM ({model_id[:10]}) | Key: {key_snippet} | AI Raw: {text[:40]}...")
+                                    # Clean and Split the AI Response
+                                    raw = [b.strip() for b in text.split('\n') if len(b.strip()) > 15]
+                                    if len(raw) < 2: raw = [s.strip() + '.' for s in text.split('. ') if len(s.strip()) > 15]
                                     
                                     bullets = [b.lstrip('•-*123456789. ').strip() for b in raw]
-                                    if len(bullets) >= 3: return {"bullets": bullets[:6]}
+                                    if len(bullets) >= 1: 
+                                        print(f"✅ AI RESEARCH SUCCESS: Delivered {len(bullets)} points")
+                                        for i, b in enumerate(bullets[:6]): print(f"   [{i+1}] {b}")
+                                        return {"bullets": bullets[:6]}
+                                else:
+                                    print(f"⚠️ OpenRouter Choice Error: {res_json}")
                             elif resp.status_code in [401, 403, 429]:
                                 print(f"⚠️ Key Error ({resp.status_code}) for {key_snippet}. Rotating...")
                                 break # Move to next API Key
@@ -245,7 +264,9 @@ class AutonomousPresenter:
                             text = data[0]['generated_text'] if isinstance(data, list) else data.get('generated_text', "")
                             content = text.split("[/INST]")[-1].strip()
                             bullets = [b.strip().lstrip('•-*123456789.').strip() for b in content.split('\n') if len(b.strip()) > 15]
-                            if len(bullets) >= 3: return {"bullets": bullets[:6]}
+                            if len(bullets) >= 1: 
+                                print(f"✅ HF Researcher: Delivered {len(bullets)} factual points.")
+                                return {"bullets": bullets[:6]}
                 except Exception as e:
                     print(f"⚠️ HF Error: {e}")
 

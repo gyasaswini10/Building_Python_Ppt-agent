@@ -56,49 +56,44 @@ except ImportError:
 active_sessions = {}
 # Thread-safe lock for session modifications
 session_lock = threading.Lock()
-MODULAR_CODE_AVAILABLE = False
+# Correct modern import for the AI Brain and Modular Servers
 try:
-    import importlib.util
-    
-    # Reuse other modules
-    research_path = Path(__file__).parent / "Modular code" / "research_mcp_server.py"
-    research_spec = importlib.util.spec_from_file_location("research_modular", str(research_path))
-    research_module = importlib.util.module_from_spec(research_spec)
-    research_spec.loader.exec_module(research_module)
-    
-    ppt_path = Path(__file__).parent / "Modular code" / "ppt_mcp_server.py"
-    ppt_spec = importlib.util.spec_from_file_location("ppt_modular", str(ppt_path))
-    ppt_module = importlib.util.module_from_spec(ppt_spec)
-    ppt_spec.loader.exec_module(ppt_module)
-    
-    print("✅ Successfully loaded modular code and AI Researcher")
+    import agent_ppt
+    import ppt_mcp_server as ppt_module
+    import research_mcp_server as research_module
+    # Force reload to ensure constructor changes are picked up without restarting thread
+    import importlib
+    importlib.reload(agent_ppt)
     MODULAR_CODE_AVAILABLE = True
-except Exception as e:
-    print(f"⚠️ Could not import modular code: {e}")
+    print("✅ Localized AI Brain and Modular Servers RELOADED successfully")
+except ImportError as e:
+    print(f"⚠️ Modular code components not found in path: {e}")
+    MODULAR_CODE_AVAILABLE = False
 
 async def research_topic_robust(query: str, slide_title: str = "") -> dict:
     """Research function with localized AI brain for thread safety"""
     # --- STAGE 1: DYNAMIC AI RESEARCH (OpenRouter/HF) ---
     if MODULAR_CODE_AVAILABLE:
         try:
-            # Re-import to ensure we have the latest and correct path
-            import agent_ppt
-            brain = agent_ppt.AutonomousPresenter(topic=query)
+            # Force a localized reload to avoid any stale class definitions in memory
+            import importlib
+            importlib.reload(agent_ppt)
+            
+            # Pass two arguments (topic, path) to satisfy both old and new constructor versions
+            brain = agent_ppt.AutonomousPresenter(query, "presentation.pptx")
             brain.setup_llm()
             
-            print(f"🧪 AI Pipeline Start: '{slide_title if slide_title else query}' (Keys Loaded: {len(brain.openrouter_keys)})")
+            print(f"🧪 AI Pipeline: Seeking Data for '{slide_title}' (Keys: {len(brain.openrouter_keys)})")
             
-            # Request 6 specific paragraphs
             search_query = f"{query} - {slide_title}" if slide_title else query
             res = await brain.ask_llm(search_query)
             
-            if res.get("bullets") and len(res["bullets"]) >= 3:
-                print(f"✅ AI Pipeline SUCCESS: {len(res['bullets'])} unique points found.")
+            if res.get("bullets") and len(res["bullets"]) >= 1:
                 return {"ok": True, "points": res["bullets"][:6], "source": "LLM-Orchestrator"}
             else:
-                print(f"⚠️ AI Pipeline Research empty or short: {res}")
+                print(f"⚠️ AI Pipeline: No points returned for '{slide_title}'. Trying Wikipedia fallback...")
         except Exception as e:
-            print(f"⚠️ AI Pipeline Error in app.py: {e}")
+            print(f"⚠️ AI Pipeline Exception: {e}")
 
     # --- STAGE 2: MODULAR Wikipedia FETCH (Standard MCP) ---
     if MODULAR_CODE_AVAILABLE and hasattr(research_module, 'search_topic'):
