@@ -112,13 +112,8 @@ In the initial development phase, the agent successfully retrieved data but fail
 I **tried** implementing an **Image Integration Sync** for asset management, but ultimately the feature **failed due to alignment issues and time constraints**. Evidence of this effort is visible in the `\savingfolder_output` directory:
 
 ```text
-    Directory: C:\Users\gyasu\Desktop\CAlibo 
-    noww\ASSIGNMENT\savingfolder_output
+    Directory:savingfolder_output
 
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
-d-----                agent_assets (Folder Logic)
-d-----                genearted (Visual Assets)
 -a----         279277 FINAL_FROG_REPORT.pptx (279KB Output)
 ```
 Although I generated full reports with local asset buffers, the coordination logic were refined to focus on high-accuracy research text synthesis first.
